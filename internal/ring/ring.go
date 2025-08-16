@@ -8,17 +8,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/canidae/canidae/internal/chaos"
+	"github.com/canidae/canidae/internal/providers"
 	"github.com/nats-io/nats.go"
 )
 
 // Ring is the core orchestration engine for CANIDAE
 type Ring struct {
-	nc         *nats.Conn
-	js         nats.JetStreamContext
-	providers  map[string]Provider
-	mu         sync.RWMutex
-	config     Config
-	packRoutes map[string]string // pack ID -> routing rules
+	nc           *nats.Conn
+	js           nats.JetStreamContext
+	registry     *providers.Registry
+	flowControl  *FlowController
+	chaosMonkey  *chaos.ChaosMonkey
+	mu           sync.RWMutex
+	config       Config
+	packRoutes   map[string]string // pack ID -> routing rules
 }
 
 // Config holds Ring configuration
