@@ -1,0 +1,39 @@
+# CANIDAE Pack Code Ownership
+# This file defines which pack members are responsible for code review
+
+# Global owners - Alpha reviews everything critical
+* @cy
+
+# Core Ring - Synth owns the orchestration engine
+/internal/ring/ @synth
+/internal/howl/ @synth
+
+# Flow Control & Resilience - Joint ownership
+/internal/ring/flow_control.go @synth @gemini
+/internal/chaos/ @synth @gemini
+
+# Security - Gemini has final say
+/internal/security/ @gemini
+/deployments/k8s/*security* @gemini
+
+# Providers - Synth implements, Gemini reviews architecture
+/internal/providers/ @synth @gemini
+
+# API & Protocol - All pack members review
+/api/ @cy @synth @gemini
+*.proto @cy @synth @gemini
+
+# Documentation - Cy maintains vision
+/docs/ @cy
+*.md @cy
+/adr/ @cy @gemini
+
+# CI/CD - Synth maintains automation
+/.github/ @synth
+/deployments/ @synth @gemini
+
+# Client SDK - Future development
+/pkg/client/ @synth
+
+# Dashboard - Future development  
+/dashboard/ @cy @synth

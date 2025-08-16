@@ -1,0 +1,172 @@
+syntax = "proto3";
+
+package howl.v1;
+
+option go_package = "github.com/canidae/canidae/pkg/api/howl/v1;howlv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+
+// HOWL Protocol - High-Order Wolf Language
+// The communication protocol for the CANIDAE pack
+
+service PackService {
+  // Summon initiates a new AI agent request
+  rpc Summon(SummonRequest) returns (SummonResponse);
+  
+  // Track monitors the status of a request
+  rpc Track(TrackRequest) returns (stream TrackResponse);
+  
+  // Circle enables multi-agent collaboration
+  rpc Circle(stream CircleRequest) returns (stream CircleResponse);
+  
+  // Howl broadcasts messages to the pack
+  rpc Howl(HowlRequest) returns (HowlResponse);
+}
+
+// PackMember represents an agent in the pack
+message PackMember {
+  string id = 1;
+  PackRole role = 2;
+  string provider = 3;
+  string model = 4;
+  map<string, string> capabilities = 5;
+  MemberStatus status = 6;
+}
+
+enum PackRole {
+  PACK_ROLE_UNSPECIFIED = 0;
+  PACK_ROLE_ALPHA = 1;      // Coordinator
+  PACK_ROLE_HUNTER = 2;     // Task executor
+  PACK_ROLE_SCOUT = 3;      // Explorer
+  PACK_ROLE_SENTRY = 4;     // Security
+  PACK_ROLE_ELDER = 5;      // Knowledge
+  PACK_ROLE_PUP = 6;        // Training
+}
+
+enum MemberStatus {
+  MEMBER_STATUS_UNSPECIFIED = 0;
+  MEMBER_STATUS_IDLE = 1;
+  MEMBER_STATUS_HUNTING = 2;
+  MEMBER_STATUS_TRACKING = 3;
+  MEMBER_STATUS_RESTING = 4;
+  MEMBER_STATUS_FAILED = 5;
+}
+
+// SummonRequest initiates an AI request
+message SummonRequest {
+  string pack_id = 1;
+  string request_id = 2;
+  PackMember member = 3;
+  string prompt = 4;
+  map<string, google.protobuf.Any> options = 5;
+  SecurityProfile security = 6;
+  google.protobuf.Timestamp timestamp = 7;
+}
+
+// SummonResponse returns the initial response
+message SummonResponse {
+  string request_id = 1;
+  string hunt_id = 2;
+  MemberStatus status = 3;
+  string message = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+// TrackRequest monitors a hunt
+message TrackRequest {
+  string pack_id = 1;
+  string hunt_id = 2;
+}
+
+// TrackResponse provides hunt updates
+message TrackResponse {
+  string hunt_id = 1;
+  MemberStatus status = 2;
+  float progress = 3;
+  string content = 4;
+  TokenUsage usage = 5;
+  google.protobuf.Timestamp timestamp = 6;
+}
+
+// CircleRequest for multi-agent collaboration
+message CircleRequest {
+  string pack_id = 1;
+  string circle_id = 2;
+  repeated PackMember members = 3;
+  string objective = 4;
+  map<string, google.protobuf.Any> context = 5;
+}
+
+// CircleResponse from collaborating agents
+message CircleResponse {
+  string circle_id = 1;
+  string member_id = 2;
+  string content = 3;
+  map<string, google.protobuf.Any> artifacts = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+// HowlRequest broadcasts to pack
+message HowlRequest {
+  string pack_id = 1;
+  string sender_id = 2;
+  HowlType type = 3;
+  string message = 4;
+  map<string, string> metadata = 5;
+}
+
+enum HowlType {
+  HOWL_TYPE_UNSPECIFIED = 0;
+  HOWL_TYPE_ALERT = 1;
+  HOWL_TYPE_GATHER = 2;
+  HOWL_TYPE_RETREAT = 3;
+  HOWL_TYPE_SUCCESS = 4;
+  HOWL_TYPE_FAILURE = 5;
+}
+
+// HowlResponse acknowledges broadcast
+message HowlResponse {
+  string howl_id = 1;
+  int32 receivers = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+// SecurityProfile defines security constraints
+message SecurityProfile {
+  string name = 1;
+  FlowControl flow_control = 2;
+  AuditLevel audit_level = 3;
+  bool mfa_required = 4;
+  bool encrypt_at_rest = 5;
+  repeated string allowed_providers = 6;
+  map<string, string> custom_policies = 7;
+}
+
+enum FlowControl {
+  FLOW_CONTROL_UNSPECIFIED = 0;
+  FLOW_CONTROL_ALLOW_ALL = 1;
+  FLOW_CONTROL_WARN_ONLY = 2;
+  FLOW_CONTROL_STRICT = 3;
+  FLOW_CONTROL_WHITELIST_ONLY = 4;
+  FLOW_CONTROL_AIRGAP_MODE = 5;
+}
+
+enum AuditLevel {
+  AUDIT_LEVEL_UNSPECIFIED = 0;
+  AUDIT_LEVEL_NONE = 1;
+  AUDIT_LEVEL_MINIMAL = 2;
+  AUDIT_LEVEL_NORMAL = 3;
+  AUDIT_LEVEL_VERBOSE = 4;
+  AUDIT_LEVEL_COMPLIANCE = 5;
+  AUDIT_LEVEL_FORENSIC = 6;
+}
+
+// TokenUsage tracks resource consumption
+message TokenUsage {
+  int32 prompt_tokens = 1;
+  int32 completion_tokens = 2;
+  int32 total_tokens = 3;
+  double estimated_cost = 4;
+  string currency = 5;
+}
