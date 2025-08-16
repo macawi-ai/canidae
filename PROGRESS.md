@@ -92,10 +92,10 @@
 - [x] Fix provider type issues (code compiles and runs!)
 
 ### Stage 2: Client SDK (Not Started)
-- [ ] Rust core library design
-- [ ] gomobile bindings
-- [ ] WASM compilation
-- [ ] Authentication layer
+- [ ] Go core library design
+- [ ] gomobile bindings for iOS/Android
+- [ ] Go-to-WASM compilation for browser
+- [ ] Go-based authentication layer
 
 ### Stage 3: Pack Isolation (Not Started)
 - [ ] Kubernetes manifests
