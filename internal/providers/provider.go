@@ -5,223 +5,180 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	
+	"github.com/canidae/canidae/pkg/types"
 )
 
-// Provider defines the interface all AI providers must implement
-type Provider interface {
-	// Name returns the provider identifier
-	Name() string
-	
-	// Execute sends a request to the AI provider
-	Execute(ctx context.Context, req Request) (*Response, error)
-	
-	// HealthCheck verifies the provider is responsive
-	HealthCheck(ctx context.Context) error
-	
-	// GetCapabilities returns what this provider can do
-	GetCapabilities() Capabilities
-	
-	// EstimateCost calculates the expected cost for a request
-	EstimateCost(req Request) Cost
+// BaseProvider provides common functionality for all providers
+type BaseProvider struct {
+	id     string
+	name   string
+	config types.ProviderConfig
+	status types.ProviderStatus
+	mu     sync.RWMutex
 }
 
-// Request represents a unified AI request
-type Request struct {
-	ID        string                 `json:"id"`
-	PackID    string                 `json:"pack_id"`
-	Role      PackRole              `json:"role"`
-	Model     string                 `json:"model"`
-	Messages  []Message             `json:"messages"`
-	Options   Options               `json:"options"`
-	Priority  Priority              `json:"priority"`
-	Timestamp time.Time             `json:"timestamp"`
-}
-
-// Message represents a conversation message
-type Message struct {
-	Role    string `json:"role"`    // system, user, assistant
-	Content string `json:"content"`
-}
-
-// Response represents a unified AI response
-type Response struct {
-	ID        string    `json:"id"`
-	RequestID string    `json:"request_id"`
-	Provider  string    `json:"provider"`
-	Model     string    `json:"model"`
-	Content   string    `json:"content"`
-	Usage     Usage     `json:"usage"`
-	Metadata  Metadata  `json:"metadata"`
-	Error     string    `json:"error,omitempty"`
-	Timestamp time.Time `json:"timestamp"`
-}
-
-// Usage tracks token consumption
-type Usage struct {
-	PromptTokens     int     `json:"prompt_tokens"`
-	CompletionTokens int     `json:"completion_tokens"`
-	TotalTokens      int     `json:"total_tokens"`
-	Cost             float64 `json:"cost"`
-	Currency         string  `json:"currency"`
-}
-
-// Cost represents estimated costs
-type Cost struct {
-	Estimated float64 `json:"estimated"`
-	Minimum   float64 `json:"minimum"`
-	Maximum   float64 `json:"maximum"`
-	Currency  string  `json:"currency"`
-}
-
-// Options for request customization
-type Options struct {
-	Temperature      float64           `json:"temperature,omitempty"`
-	MaxTokens        int               `json:"max_tokens,omitempty"`
-	TopP             float64           `json:"top_p,omitempty"`
-	Stream           bool              `json:"stream,omitempty"`
-	StopSequences    []string          `json:"stop_sequences,omitempty"`
-	PresencePenalty  float64           `json:"presence_penalty,omitempty"`
-	FrequencyPenalty float64           `json:"frequency_penalty,omitempty"`
-	Custom           map[string]interface{} `json:"custom,omitempty"`
-}
-
-// Capabilities describes what a provider can do
-type Capabilities struct {
-	Models           []ModelInfo `json:"models"`
-	MaxTokens        int         `json:"max_tokens"`
-	SupportsStream   bool        `json:"supports_stream"`
-	SupportsFunction bool        `json:"supports_function"`
-	SupportsVision   bool        `json:"supports_vision"`
-	SupportsAudio    bool        `json:"supports_audio"`
-}
-
-// ModelInfo describes a specific model
-type ModelInfo struct {
-	ID           string  `json:"id"`
-	Name         string  `json:"name"`
-	ContextSize  int     `json:"context_size"`
-	CostPerToken float64 `json:"cost_per_token"`
-	Deprecated   bool    `json:"deprecated"`
-}
-
-// Metadata for additional response information
-type Metadata struct {
-	ProcessingTime time.Duration          `json:"processing_time"`
-	Region         string                 `json:"region,omitempty"`
-	Version        string                 `json:"version,omitempty"`
-	Extra          map[string]interface{} `json:"extra,omitempty"`
-}
-
-// PackRole represents the role in the pack
-type PackRole string
-
-const (
-	PackRoleAlpha   PackRole = "alpha"
-	PackRoleHunter  PackRole = "hunter"
-	PackRoleScout   PackRole = "scout"
-	PackRoleSentry  PackRole = "sentry"
-	PackRoleElder   PackRole = "elder"
-	PackRolePup     PackRole = "pup"
-)
-
-// Priority levels for requests
-type Priority int
-
-const (
-	PriorityCritical Priority = iota
-	PriorityHigh
-	PriorityMedium
-	PriorityLow
-)
-
-// Registry manages available providers
-type Registry struct {
-	providers map[string]Provider
-	factories map[string]Factory
-	mu        sync.RWMutex
-}
-
-// Factory creates provider instances
-type Factory func(config map[string]interface{}) (Provider, error)
-
-// NewRegistry creates a provider registry
-func NewRegistry() *Registry {
-	return &Registry{
-		providers: make(map[string]Provider),
-		factories: make(map[string]Factory),
+// NewBaseProvider creates a base provider instance
+func NewBaseProvider(config types.ProviderConfig) *BaseProvider {
+	return &BaseProvider{
+		id:     config.ID,
+		name:   config.Name,
+		config: config,
+		status: types.ProviderStatus{
+			Available:   true,
+			HealthScore: 100.0,
+			LastCheck:   time.Now(),
+		},
 	}
 }
 
-// Register adds a provider factory
-func (r *Registry) Register(name string, factory Factory) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	
-	if _, exists := r.factories[name]; exists {
-		return fmt.Errorf("provider %s already registered", name)
+// GetID returns the provider ID
+func (p *BaseProvider) GetID() string {
+	return p.id
+}
+
+// GetStatus returns the current provider status
+func (p *BaseProvider) GetStatus() types.ProviderStatus {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.status
+}
+
+// UpdateStatus updates the provider status
+func (p *BaseProvider) UpdateStatus(status types.ProviderStatus) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.status = status
+}
+
+// MockProvider is a simple mock provider for testing
+type MockProvider struct {
+	*BaseProvider
+	responseDelay time.Duration
+	errorRate     float64
+}
+
+// NewMockProvider creates a mock provider
+func NewMockProvider(id string) *MockProvider {
+	config := types.ProviderConfig{
+		ID:        id,
+		Name:      "Mock Provider " + id,
+		Type:      types.ProviderTypeLLM,
+		RateLimit: 100,
+		Timeout:   30 * time.Second,
 	}
 	
-	r.factories[name] = factory
+	return &MockProvider{
+		BaseProvider:  NewBaseProvider(config),
+		responseDelay: 100 * time.Millisecond,
+		errorRate:     0.0,
+	}
+}
+
+// Execute processes a request through the mock provider
+func (p *MockProvider) Execute(ctx context.Context, req *types.Request) (*types.Response, error) {
+	// Simulate processing delay
+	select {
+	case <-time.After(p.responseDelay):
+		// Continue processing
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	
+	// Create mock response
+	response := &types.Response{
+		ID:         fmt.Sprintf("resp-%d", time.Now().UnixNano()),
+		RequestID:  req.ID,
+		ProviderID: p.GetID(),
+		Status:     types.StatusSuccess,
+		Result:     fmt.Sprintf("Mock response to: %s", req.Prompt),
+		Usage: &types.Usage{
+			PromptTokens:     10,
+			CompletionTokens: 20,
+			TotalTokens:      30,
+		},
+		ProcessingTime: p.responseDelay.Seconds(),
+		Timestamp:      time.Now(),
+	}
+	
+	return response, nil
+}
+
+// Close cleanly shuts down the provider
+func (p *MockProvider) Close() error {
+	p.UpdateStatus(types.ProviderStatus{
+		Available: false,
+		Message:   "Provider closed",
+		LastCheck: time.Now(),
+	})
 	return nil
 }
 
-// Create instantiates a provider
-func (r *Registry) Create(name string, config map[string]interface{}) (Provider, error) {
-	r.mu.RLock()
-	factory, exists := r.factories[name]
-	r.mu.RUnlock()
-	
-	if !exists {
-		return nil, fmt.Errorf("provider %s not found", name)
+// Registry manages provider registration and lookup
+type Registry struct {
+	mu        sync.RWMutex
+	providers map[string]types.Provider
+}
+
+// NewRegistry creates a new provider registry
+func NewRegistry() *Registry {
+	return &Registry{
+		providers: make(map[string]types.Provider),
 	}
-	
-	provider, err := factory(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create provider %s: %w", name, err)
-	}
-	
+}
+
+// Register adds a provider to the registry
+func (r *Registry) Register(provider types.Provider) error {
 	r.mu.Lock()
-	r.providers[name] = provider
-	r.mu.Unlock()
+	defer r.mu.Unlock()
 	
+	id := provider.GetID()
+	if _, exists := r.providers[id]; exists {
+		return fmt.Errorf("provider %s already registered", id)
+	}
+	
+	r.providers[id] = provider
+	return nil
+}
+
+// Get retrieves a provider by ID
+func (r *Registry) Get(id string) (types.Provider, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	
+	provider, ok := r.providers[id]
+	if !ok {
+		return nil, fmt.Errorf("provider %s not found", id)
+	}
 	return provider, nil
 }
 
-// Get retrieves an active provider
-func (r *Registry) Get(name string) (Provider, bool) {
+// List returns all registered providers
+func (r *Registry) List() []types.Provider {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	
-	provider, exists := r.providers[name]
-	return provider, exists
+	providers := make([]types.Provider, 0, len(r.providers))
+	for _, p := range r.providers {
+		providers = append(providers, p)
+	}
+	return providers
 }
 
-// List returns all registered provider names
-func (r *Registry) List() []string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+// Remove unregisters a provider
+func (r *Registry) Remove(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	
-	names := make([]string, 0, len(r.factories))
-	for name := range r.factories {
-		names = append(names, name)
+	if _, exists := r.providers[id]; !exists {
+		return fmt.Errorf("provider %s not found", id)
 	}
 	
-	return names
-}
-
-// BaseProvider provides common functionality
-type BaseProvider struct {
-	name         string
-	capabilities Capabilities
-	config       map[string]interface{}
-}
-
-// Name returns provider name
-func (b *BaseProvider) Name() string {
-	return b.name
-}
-
-// GetCapabilities returns provider capabilities
-func (b *BaseProvider) GetCapabilities() Capabilities {
-	return b.capabilities
+	// Close the provider before removing
+	if provider, ok := r.providers[id]; ok {
+		provider.Close()
+	}
+	
+	delete(r.providers, id)
+	return nil
 }

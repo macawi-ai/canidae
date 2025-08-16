@@ -1,0 +1,523 @@
+openapi: 3.1.0
+info:
+  title: CANIDAE Ring Orchestrator API
+  description: |
+    Pack-oriented AI orchestration platform that eliminates STDIO vulnerabilities
+    through message-based communication and robust flow control.
+    
+    The pack hunts as one 🐺
+  version: 0.1.0
+  contact:
+    name: CANIDAE Team
+    email: canidae@macawi-ai.com
+    url: https://github.com/macawi-ai/canidae
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: http://192.168.1.38:8080
+    description: Production server
+  - url: https://api.canidae.io
+    description: Future cloud deployment
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the Ring orchestrator
+      operationId: getHealth
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: healthy
+                service: canidae-ring
+                timestamp: "2025-08-16T21:54:25Z"
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ready:
+    get:
+      summary: Readiness probe
+      description: Indicates if the service is ready to accept requests
+      operationId: getReady
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+              example:
+                ready: true
+                service: canidae-ring
+                providers: 2
+                nats_connected: true
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics endpoint
+      description: Returns metrics in Prometheus exposition format
+      operationId: getMetrics
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Metrics in Prometheus format
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP canidae_ring_up CANIDAE Ring service status
+                # TYPE canidae_ring_up gauge
+                canidae_ring_up 1
+                # HELP canidae_request_duration_seconds Request duration
+                # TYPE canidae_request_duration_seconds histogram
+                canidae_request_duration_seconds_bucket{le="0.1"} 45
+
+  /providers:
+    get:
+      summary: List available AI providers
+      description: Returns a list of configured AI providers and their status
+      operationId: listProviders
+      tags:
+        - Providers
+      security:
+        - api_key: []
+      responses:
+        '200':
+          description: List of providers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AIProvider'
+              example:
+                providers:
+                  - id: anthropic-claude
+                    name: Anthropic Claude
+                    type: LLM
+                    status: available
+                    rate_limit: 100
+                  - id: openai-gpt4
+                    name: OpenAI GPT-4
+                    type: LLM
+                    status: available
+                    rate_limit: 200
+
+  /providers/{providerId}/test:
+    post:
+      summary: Test a specific provider
+      description: Sends a test request to verify provider connectivity
+      operationId: testProvider
+      tags:
+        - Providers
+      security:
+        - api_key: []
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Provider identifier
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                test_prompt:
+                  type: string
+                  default: "Hello, please confirm you are operational."
+      responses:
+        '200':
+          description: Provider test successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestResponse'
+        '404':
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Provider unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /process:
+    post:
+      summary: Process AI request
+      description: |
+        Submit a request to be processed by the specified AI provider.
+        The request is routed through the HOWL protocol with flow control
+        and circuit breaker protection.
+      operationId: processRequest
+      tags:
+        - Processing
+      security:
+        - api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIRequest'
+            examples:
+              anthropic:
+                summary: Anthropic Claude request
+                value:
+                  provider_id: anthropic-claude
+                  pack_id: pack-123
+                  prompt: "Explain quantum computing in simple terms"
+                  parameters:
+                    temperature: 0.7
+                    max_tokens: 500
+                  priority: medium
+              openai:
+                summary: OpenAI GPT-4 request
+                value:
+                  provider_id: openai-gpt4
+                  pack_id: pack-456
+                  prompt: "Generate a Python function to sort a list"
+                  parameters:
+                    temperature: 0.5
+                    max_tokens: 1000
+                  priority: high
+      responses:
+        '200':
+          description: Request processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIResponse'
+        '202':
+          description: Request accepted for async processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitResponse'
+        '503':
+          description: Service unavailable (circuit breaker open)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CircuitBreakerResponse'
+
+components:
+  securitySchemes:
+    api_key:
+      type: apiKey
+      name: x-api-key
+      in: header
+      description: API key for authentication
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        service:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: object
+          additionalProperties: true
+
+    ReadyResponse:
+      type: object
+      required:
+        - ready
+        - service
+      properties:
+        ready:
+          type: boolean
+        service:
+          type: string
+        providers:
+          type: integer
+        nats_connected:
+          type: boolean
+        details:
+          type: object
+          additionalProperties: true
+
+    AIProvider:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique provider identifier
+        name:
+          type: string
+          description: Human-readable provider name
+        type:
+          type: string
+          enum: [LLM, ImageGeneration, ImageClassification, Speech, Translation]
+          description: Type of AI service
+        status:
+          type: string
+          enum: [available, degraded, unavailable]
+        rate_limit:
+          type: integer
+          description: Requests per minute limit
+        parameters:
+          type: object
+          description: Provider-specific configuration
+          additionalProperties: true
+        capabilities:
+          type: array
+          items:
+            type: string
+          description: List of provider capabilities
+
+    AIRequest:
+      type: object
+      required:
+        - provider_id
+        - pack_id
+        - prompt
+      properties:
+        provider_id:
+          type: string
+          description: Target provider identifier
+        pack_id:
+          type: string
+          description: Pack identifier for routing
+        prompt:
+          type: string
+          description: Input prompt/query for the AI
+        parameters:
+          type: object
+          description: Provider-specific parameters
+          additionalProperties: true
+          properties:
+            temperature:
+              type: number
+              minimum: 0
+              maximum: 2
+            max_tokens:
+              type: integer
+              minimum: 1
+            top_p:
+              type: number
+              minimum: 0
+              maximum: 1
+        priority:
+          type: string
+          enum: [critical, high, medium, low]
+          default: medium
+          description: Request priority for flow control
+        timeout:
+          type: integer
+          description: Request timeout in seconds
+          default: 30
+        metadata:
+          type: object
+          description: Additional request metadata
+          additionalProperties: true
+
+    AIResponse:
+      type: object
+      required:
+        - request_id
+        - provider_id
+        - result
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        provider_id:
+          type: string
+        result:
+          type: string
+          description: AI-generated response
+        usage:
+          type: object
+          properties:
+            prompt_tokens:
+              type: integer
+            completion_tokens:
+              type: integer
+            total_tokens:
+              type: integer
+        metadata:
+          type: object
+          additionalProperties: true
+        processing_time:
+          type: number
+          description: Processing time in seconds
+
+    AsyncResponse:
+      type: object
+      required:
+        - request_id
+        - status
+        - message
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [accepted, queued, processing]
+        message:
+          type: string
+        nats_subject:
+          type: string
+          description: NATS subject for response delivery
+          example: canidae.response.pack-123
+        estimated_time:
+          type: integer
+          description: Estimated processing time in seconds
+
+    TestResponse:
+      type: object
+      required:
+        - provider_id
+        - status
+        - response_time
+      properties:
+        provider_id:
+          type: string
+        status:
+          type: string
+          enum: [success, failure]
+        response_time:
+          type: number
+          description: Response time in milliseconds
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        request_id:
+          type: string
+          format: uuid
+
+    RateLimitResponse:
+      type: object
+      required:
+        - error
+        - message
+        - retry_after
+      properties:
+        error:
+          type: string
+          default: rate_limit_exceeded
+        message:
+          type: string
+        retry_after:
+          type: integer
+          description: Seconds until rate limit resets
+        limit:
+          type: integer
+          description: Current rate limit
+        remaining:
+          type: integer
+          description: Remaining requests in window
+
+    CircuitBreakerResponse:
+      type: object
+      required:
+        - error
+        - message
+        - circuit_state
+      properties:
+        error:
+          type: string
+          default: circuit_breaker_open
+        message:
+          type: string
+        circuit_state:
+          type: string
+          enum: [open, half-open, closed]
+        retry_after:
+          type: integer
+          description: Seconds until circuit breaker attempts recovery
+        failure_count:
+          type: integer
+          description: Number of consecutive failures
+
+tags:
+  - name: Monitoring
+    description: Health and monitoring endpoints
+  - name: Providers
+    description: AI provider management
+  - name: Processing
+    description: Request processing endpoints
+
+externalDocs:
+  description: CANIDAE Documentation
+  url: https://github.com/macawi-ai/canidae/docs

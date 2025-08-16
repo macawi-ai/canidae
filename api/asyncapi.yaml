@@ -1,0 +1,376 @@
+asyncapi: 2.6.0
+info:
+  title: CANIDAE NATS Message Bus
+  version: 0.1.0
+  description: |
+    Asynchronous message communication for CANIDAE using NATS JetStream.
+    This specification documents the HOWL protocol message patterns.
+    
+    The pack communicates through howls 🐺
+  contact:
+    name: CANIDAE Team
+    email: canidae@macawi-ai.com
+    url: https://github.com/macawi-ai/canidae
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  development:
+    url: nats://localhost:4222
+    protocol: nats
+    description: Local development NATS server
+  production:
+    url: nats://192.168.1.38:4222
+    protocol: nats
+    description: Production NATS server
+
+channels:
+  canidae.request.{packId}:
+    description: Channel for incoming AI processing requests per pack
+    parameters:
+      packId:
+        description: Unique identifier for the pack
+        schema:
+          type: string
+          pattern: '^pack-[a-zA-Z0-9]+$'
+    publish:
+      operationId: publishRequest
+      message:
+        $ref: '#/components/messages/ProcessRequest'
+    subscribe:
+      operationId: consumeRequest
+      message:
+        $ref: '#/components/messages/ProcessRequest'
+
+  canidae.response.{packId}:
+    description: Channel for AI processing responses per pack
+    parameters:
+      packId:
+        description: Unique identifier for the pack
+        schema:
+          type: string
+          pattern: '^pack-[a-zA-Z0-9]+$'
+    publish:
+      operationId: publishResponse
+      message:
+        $ref: '#/components/messages/ProcessResponse'
+    subscribe:
+      operationId: consumeResponse
+      message:
+        $ref: '#/components/messages/ProcessResponse'
+
+  canidae.telemetry.{packId}:
+    description: Channel for telemetry and metrics data per pack
+    parameters:
+      packId:
+        description: Unique identifier for the pack
+        schema:
+          type: string
+          pattern: '^pack-[a-zA-Z0-9]+$'
+    publish:
+      operationId: publishTelemetry
+      message:
+        $ref: '#/components/messages/TelemetryData'
+    subscribe:
+      operationId: consumeTelemetry
+      message:
+        $ref: '#/components/messages/TelemetryData'
+
+  canidae.provider.{providerId}.status:
+    description: Channel for provider status updates
+    parameters:
+      providerId:
+        description: Provider identifier
+        schema:
+          type: string
+    publish:
+      operationId: publishProviderStatus
+      message:
+        $ref: '#/components/messages/ProviderStatus'
+    subscribe:
+      operationId: consumeProviderStatus
+      message:
+        $ref: '#/components/messages/ProviderStatus'
+
+  canidae.flow.control:
+    description: Channel for flow control events
+    publish:
+      operationId: publishFlowControl
+      message:
+        $ref: '#/components/messages/FlowControlEvent'
+    subscribe:
+      operationId: consumeFlowControl
+      message:
+        $ref: '#/components/messages/FlowControlEvent'
+
+  canidae.chaos.events:
+    description: Channel for chaos engineering events
+    publish:
+      operationId: publishChaosEvent
+      message:
+        $ref: '#/components/messages/ChaosEvent'
+    subscribe:
+      operationId: consumeChaosEvent
+      message:
+        $ref: '#/components/messages/ChaosEvent'
+
+components:
+  messages:
+    ProcessRequest:
+      name: ProcessRequest
+      title: AI Processing Request
+      summary: Request to process through an AI provider
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - request_id
+          - provider_id
+          - prompt
+          - timestamp
+        properties:
+          request_id:
+            type: string
+            format: uuid
+            description: Unique request identifier
+          provider_id:
+            type: string
+            description: Target AI provider
+          prompt:
+            type: string
+            description: Input prompt for processing
+          parameters:
+            type: object
+            description: Provider-specific parameters
+            additionalProperties: true
+          priority:
+            type: string
+            enum: [critical, high, medium, low]
+            default: medium
+          timeout:
+            type: integer
+            description: Request timeout in seconds
+            default: 30
+          timestamp:
+            type: string
+            format: date-time
+          metadata:
+            type: object
+            additionalProperties: true
+
+    ProcessResponse:
+      name: ProcessResponse
+      title: AI Processing Response
+      summary: Response from AI provider processing
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - request_id
+          - provider_id
+          - status
+          - timestamp
+        properties:
+          request_id:
+            type: string
+            format: uuid
+          provider_id:
+            type: string
+          status:
+            type: string
+            enum: [success, error, timeout, rate_limited]
+          result:
+            type: string
+            description: AI-generated response (if successful)
+          error:
+            type: object
+            properties:
+              code:
+                type: string
+              message:
+                type: string
+              details:
+                type: object
+                additionalProperties: true
+          usage:
+            type: object
+            properties:
+              prompt_tokens:
+                type: integer
+              completion_tokens:
+                type: integer
+              total_tokens:
+                type: integer
+          processing_time:
+            type: number
+            description: Processing time in seconds
+          timestamp:
+            type: string
+            format: date-time
+          metadata:
+            type: object
+            additionalProperties: true
+
+    TelemetryData:
+      name: TelemetryData
+      title: Telemetry Data
+      summary: Metrics and telemetry information
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - pack_id
+          - timestamp
+          - metrics
+        properties:
+          pack_id:
+            type: string
+          timestamp:
+            type: string
+            format: date-time
+          metrics:
+            type: object
+            properties:
+              requests_total:
+                type: integer
+              requests_success:
+                type: integer
+              requests_failed:
+                type: integer
+              average_latency:
+                type: number
+                description: Average latency in milliseconds
+              providers_used:
+                type: object
+                additionalProperties:
+                  type: integer
+              rate_limit_hits:
+                type: integer
+              circuit_breaker_trips:
+                type: integer
+          system:
+            type: object
+            properties:
+              cpu_usage:
+                type: number
+              memory_usage:
+                type: number
+              active_connections:
+                type: integer
+
+    ProviderStatus:
+      name: ProviderStatus
+      title: Provider Status Update
+      summary: Status update for an AI provider
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - provider_id
+          - status
+          - timestamp
+        properties:
+          provider_id:
+            type: string
+          status:
+            type: string
+            enum: [available, degraded, unavailable, maintenance]
+          health_score:
+            type: number
+            minimum: 0
+            maximum: 100
+          latency:
+            type: number
+            description: Current average latency in ms
+          error_rate:
+            type: number
+            description: Error rate percentage
+          rate_limit:
+            type: object
+            properties:
+              limit:
+                type: integer
+              remaining:
+                type: integer
+              reset_at:
+                type: string
+                format: date-time
+          timestamp:
+            type: string
+            format: date-time
+          message:
+            type: string
+
+    FlowControlEvent:
+      name: FlowControlEvent
+      title: Flow Control Event
+      summary: Event related to flow control mechanisms
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - event_type
+          - provider_id
+          - timestamp
+        properties:
+          event_type:
+            type: string
+            enum: [rate_limit_triggered, circuit_breaker_open, circuit_breaker_close, backpressure_applied]
+          provider_id:
+            type: string
+          pack_id:
+            type: string
+          details:
+            type: object
+            properties:
+              requests_dropped:
+                type: integer
+              queue_size:
+                type: integer
+              retry_after:
+                type: integer
+                description: Seconds until retry
+          timestamp:
+            type: string
+            format: date-time
+
+    ChaosEvent:
+      name: ChaosEvent
+      title: Chaos Engineering Event
+      summary: Event from chaos engineering system
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - event_type
+          - target
+          - timestamp
+        properties:
+          event_type:
+            type: string
+            enum: [latency_injection, error_injection, provider_failure, network_partition, resource_exhaustion]
+          target:
+            type: string
+            description: Target component or provider
+          duration:
+            type: integer
+            description: Duration of chaos event in seconds
+          severity:
+            type: string
+            enum: [low, medium, high, critical]
+          impact:
+            type: object
+            properties:
+              affected_requests:
+                type: integer
+              affected_packs:
+                type: array
+                items:
+                  type: string
+          timestamp:
+            type: string
+            format: date-time
+          metadata:
+            type: object
+            additionalProperties: true

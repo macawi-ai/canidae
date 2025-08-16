@@ -2,234 +2,216 @@ package ring
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
 	"time"
-
-	"github.com/canidae/canidae/internal/chaos"
+	
 	"github.com/canidae/canidae/internal/providers"
+	"github.com/canidae/canidae/pkg/types"
 	"github.com/nats-io/nats.go"
 )
 
-// Ring is the core orchestration engine for CANIDAE
+// Ring is the simplified core orchestration engine for CANIDAE
 type Ring struct {
-	nc           *nats.Conn
-	js           nats.JetStreamContext
-	registry     *providers.Registry
-	flowControl  *FlowController
-	chaosMonkey  *chaos.ChaosMonkey
-	mu           sync.RWMutex
-	config       Config
-	packRoutes   map[string]string // pack ID -> routing rules
-	providers    map[string]providers.Provider // provider instances
+	nc          *nats.Conn
+	js          nats.JetStreamContext
+	registry    *providers.Registry
+	mu          sync.RWMutex
+	config      Config
+	packRoutes  map[string]string // pack ID -> routing rules
 }
 
 // Config holds Ring configuration
 type Config struct {
-	NatsConn   *nats.Conn
-	ConfigPath string
+	NatsURL      string
+	Name         string
+	MaxRetries   int
+	RetryDelay   time.Duration
 }
 
-// Provider interface for AI providers
-type Provider interface {
-	Name() string
-	Execute(ctx context.Context, req Request) (Response, error)
-	HealthCheck(ctx context.Context) error
-}
-
-// Request represents an AI request
-type Request struct {
-	ID        string                 `json:"id"`
-	PackID    string                 `json:"pack_id"`
-	Provider  string                 `json:"provider"`
-	Model     string                 `json:"model"`
-	Prompt    string                 `json:"prompt"`
-	Options   map[string]interface{} `json:"options,omitempty"`
-	Timestamp time.Time              `json:"timestamp"`
-}
-
-// Response represents an AI response
-type Response struct {
-	ID        string    `json:"id"`
-	RequestID string    `json:"request_id"`
-	Content   string    `json:"content"`
-	Usage     Usage     `json:"usage"`
-	Error     string    `json:"error,omitempty"`
-	Timestamp time.Time `json:"timestamp"`
-}
-
-// Usage tracks resource consumption
-type Usage struct {
-	PromptTokens     int     `json:"prompt_tokens"`
-	CompletionTokens int     `json:"completion_tokens"`
-	TotalTokens      int     `json:"total_tokens"`
-	Cost             float64 `json:"cost"`
-}
-
-// New creates a new Ring instance
-func New(cfg Config) (*Ring, error) {
-	// Create JetStream context for durable messaging
-	js, err := cfg.NatsConn.JetStream()
+// NewRing creates a new Ring orchestrator
+func NewRing(config Config) (*Ring, error) {
+	// Connect to NATS
+	nc, err := nats.Connect(config.NatsURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create JetStream context: %w", err)
-	}
-
-	// Create or update the stream for requests
-	streamCfg := &nats.StreamConfig{
-		Name:      "CANIDAE_REQUESTS",
-		Subjects:  []string{"canidae.request.>"},
-		Retention: nats.WorkQueuePolicy,
-		MaxAge:    24 * time.Hour,
-		Storage:   nats.FileStorage,
+		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
 	}
 	
-	if _, err := js.AddStream(streamCfg); err != nil {
-		// Stream might already exist, try updating
-		if _, err := js.UpdateStream(streamCfg); err != nil {
-			log.Printf("Warning: Could not create/update stream: %v", err)
-		}
+	// Create JetStream context
+	js, err := nc.JetStream()
+	if err != nil {
+		nc.Close()
+		return nil, fmt.Errorf("failed to create JetStream context: %w", err)
 	}
-
-	r := &Ring{
-		nc:         cfg.NatsConn,
+	
+	ring := &Ring{
+		nc:         nc,
 		js:         js,
-		providers:  make(map[string]Provider),
-		config:     cfg,
+		registry:   providers.NewRegistry(),
+		config:     config,
 		packRoutes: make(map[string]string),
 	}
-
-	// Initialize providers (will be loaded dynamically later)
-	if err := r.initProviders(); err != nil {
-		return nil, fmt.Errorf("failed to initialize providers: %w", err)
+	
+	// Initialize default providers
+	if err := ring.initializeProviders(); err != nil {
+		log.Printf("Warning: Failed to initialize providers: %v", err)
 	}
-
-	return r, nil
+	
+	return ring, nil
 }
 
-// Start begins processing requests
-func (r *Ring) Start(ctx context.Context) error {
-	log.Println("Ring orchestration engine starting...")
-
-	// Subscribe to request queue
-	sub, err := r.js.QueueSubscribe(
-		"canidae.request.*",
-		"ring-workers",
-		r.handleRequest,
-		nats.Durable("ring-worker"),
-		nats.ManualAck(),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to subscribe to requests: %w", err)
+// initializeProviders sets up mock providers for testing
+func (r *Ring) initializeProviders() error {
+	// Create mock providers for testing
+	mock1 := providers.NewMockProvider("mock-1")
+	mock2 := providers.NewMockProvider("mock-2")
+	
+	if err := r.registry.Register(mock1); err != nil {
+		return err
 	}
-	defer sub.Unsubscribe()
+	if err := r.registry.Register(mock2); err != nil {
+		return err
+	}
+	
+	log.Printf("Initialized %d mock providers", 2)
+	return nil
+}
 
-	// Start health check routine
-	go r.healthCheckLoop(ctx)
+// Process handles an incoming request
+func (r *Ring) Process(ctx context.Context, req *types.Request) (*types.Response, error) {
+	// Validate request
+	if req.ProviderID == "" {
+		return nil, fmt.Errorf("provider ID required")
+	}
+	if req.Prompt == "" {
+		return nil, fmt.Errorf("prompt required")
+	}
+	
+	// Get provider from registry
+	provider, err := r.registry.Get(req.ProviderID)
+	if err != nil {
+		return nil, fmt.Errorf("provider not found: %w", err)
+	}
+	
+	// Check provider status
+	status := provider.GetStatus()
+	if !status.Available {
+		return nil, fmt.Errorf("provider %s is unavailable: %s", req.ProviderID, status.Message)
+	}
+	
+	// Create context with timeout
+	timeout := req.Timeout
+	if timeout == 0 {
+		timeout = 30 * time.Second
+	}
+	execCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	
+	// Execute request through provider
+	start := time.Now()
+	response, err := provider.Execute(execCtx, req)
+	if err != nil {
+		return nil, fmt.Errorf("provider execution failed: %w", err)
+	}
+	
+	// Update processing time
+	response.ProcessingTime = time.Since(start).Seconds()
+	
+	// Publish response to NATS if pack ID is specified
+	if req.PackID != "" {
+		subject := fmt.Sprintf("canidae.response.%s", req.PackID)
+		if err := r.publishResponse(subject, response); err != nil {
+			log.Printf("Failed to publish response to NATS: %v", err)
+		}
+	}
+	
+	return response, nil
+}
 
-	log.Println("Ring is active and processing requests")
+// publishResponse publishes a response to NATS
+func (r *Ring) publishResponse(subject string, response *types.Response) error {
+	// In a real implementation, we would marshal the response to JSON
+	// For now, just log it
+	log.Printf("Publishing response to %s: %+v", subject, response)
+	return nil
+}
+
+// ListProviders returns all available providers
+func (r *Ring) ListProviders() []types.Provider {
+	return r.registry.List()
+}
+
+// GetProvider returns a specific provider
+func (r *Ring) GetProvider(id string) (types.Provider, error) {
+	return r.registry.Get(id)
+}
+
+// RegisterProvider adds a new provider
+func (r *Ring) RegisterProvider(provider types.Provider) error {
+	return r.registry.Register(provider)
+}
+
+// Start begins processing messages from NATS
+func (r *Ring) Start(ctx context.Context) error {
+	// Subscribe to request subjects
+	subscription, err := r.nc.Subscribe("canidae.request.*", func(msg *nats.Msg) {
+		// Parse pack ID from subject
+		// Process request asynchronously
+		go r.handleNatsMessage(ctx, msg)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to subscribe: %w", err)
+	}
+	
+	log.Printf("Ring started, listening on canidae.request.*")
 	
 	// Wait for context cancellation
 	<-ctx.Done()
 	
-	log.Println("Ring shutting down...")
+	// Clean shutdown
+	subscription.Unsubscribe()
 	return nil
 }
 
-// handleRequest processes incoming AI requests
-func (r *Ring) handleRequest(msg *nats.Msg) {
-	var req Request
-	if err := json.Unmarshal(msg.Data, &req); err != nil {
-		log.Printf("Failed to unmarshal request: %v", err)
-		msg.Nak()
-		return
-	}
-
-	log.Printf("Processing request %s from pack %s to provider %s", 
-		req.ID, req.PackID, req.Provider)
-
-	// Get the provider
-	r.mu.RLock()
-	provider, exists := r.providers[req.Provider]
-	r.mu.RUnlock()
-
-	if !exists {
-		r.sendError(req, fmt.Sprintf("provider %s not found", req.Provider))
-		msg.Ack()
-		return
-	}
-
-	// Execute the request
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	resp, err := provider.Execute(ctx, req)
-	if err != nil {
-		r.sendError(req, err.Error())
-		msg.Ack()
-		return
-	}
-
-	// Publish response
-	respData, _ := json.Marshal(resp)
-	if err := r.nc.Publish(fmt.Sprintf("canidae.response.%s", req.PackID), respData); err != nil {
-		log.Printf("Failed to publish response: %v", err)
-	}
-
-	msg.Ack()
-}
-
-// sendError sends an error response
-func (r *Ring) sendError(req Request, errMsg string) {
-	resp := Response{
-		ID:        generateID(),
-		RequestID: req.ID,
-		Error:     errMsg,
-		Timestamp: time.Now(),
-	}
+// handleNatsMessage processes a message from NATS
+func (r *Ring) handleNatsMessage(ctx context.Context, msg *nats.Msg) {
+	// In a real implementation, we would unmarshal the message
+	// and process it through the appropriate provider
+	log.Printf("Received message on %s: %d bytes", msg.Subject, len(msg.Data))
 	
-	respData, _ := json.Marshal(resp)
-	r.nc.Publish(fmt.Sprintf("canidae.response.%s", req.PackID), respData)
+	// Send acknowledgment
+	if err := msg.Ack(); err != nil {
+		log.Printf("Failed to acknowledge message: %v", err)
+	}
 }
 
-// initProviders initializes available providers
-func (r *Ring) initProviders() error {
-	// TODO: Dynamically load providers from plugins or configuration
-	// For now, we'll add them manually in the next iteration
-	log.Println("Provider initialization complete (0 providers loaded)")
-	return nil
-}
-
-// healthCheckLoop monitors provider health
-func (r *Ring) healthCheckLoop(ctx context.Context) {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			r.mu.RLock()
-			providers := make(map[string]Provider)
-			for k, v := range r.providers {
-				providers[k] = v
-			}
-			r.mu.RUnlock()
-
-			for name, provider := range providers {
-				checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-				if err := provider.HealthCheck(checkCtx); err != nil {
-					log.Printf("Provider %s health check failed: %v", name, err)
-				}
-				cancel()
-			}
+// Close cleanly shuts down the Ring
+func (r *Ring) Close() error {
+	// Close all providers
+	for _, provider := range r.registry.List() {
+		if err := provider.Close(); err != nil {
+			log.Printf("Error closing provider %s: %v", provider.GetID(), err)
 		}
 	}
+	
+	// Close NATS connection
+	r.nc.Close()
+	
+	log.Printf("Ring shut down cleanly")
+	return nil
 }
 
-// generateID creates a unique identifier
-func generateID() string {
-	return fmt.Sprintf("%d", time.Now().UnixNano())
+// HealthCheck verifies the Ring is operational
+func (r *Ring) HealthCheck() error {
+	if !r.nc.IsConnected() {
+		return fmt.Errorf("NATS disconnected")
+	}
+	
+	providers := r.registry.List()
+	if len(providers) == 0 {
+		return fmt.Errorf("no providers available")
+	}
+	
+	return nil
 }
