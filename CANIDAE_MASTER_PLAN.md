@@ -82,49 +82,39 @@
 
 ## 📍 Implementation Locations
 
-### Repository Structure
+### Repository Structure (IMPLEMENTED)
 ```
-/home/cy/projects/canidae/
-├── canidae-cli/              # Core orchestration engine (Go)
-│   ├── cmd/                  # CLI entry points
-│   ├── internal/
-│   │   ├── ring/            # Message bus implementation
-│   │   ├── howl/            # Protocol implementation
-│   │   ├── pack/            # Pack management
-│   │   ├── providers/       # AI provider adapters
-│   │   └── security/        # Security profiles
-│   └── api/                 # gRPC/REST definitions
-│
-├── canidae-client/           # Client SDK (Rust core)
-│   ├── core/                # Shared Rust library
-│   ├── adapters/
-│   │   ├── bash/           # CLI wrapper
-│   │   ├── android/        # Kotlin bindings
-│   │   ├── ios/            # Swift bindings
-│   │   └── web/            # WASM/TypeScript
-│   └── ffi/                # UniFFI definitions
-│
-├── canidae-dashboard/        # Management UI (React/Next.js)
-│   ├── src/
-│   │   ├── PackView/       # Pack management
-│   │   ├── NetworkMesh/    # Topology visualization
-│   │   └── Billing/        # Usage & costs
-│   └── public/
-│
-├── canidae-prismatic/        # iPaaS connector
-│   ├── src/                # TypeScript component
-│   └── workflows/          # Example workflows
-│
-├── deployments/             # K8s manifests & Helm charts
-│   ├── helm/
-│   ├── terraform/
-│   └── ansible/
-│
-└── docs/                    # Documentation
-    ├── architecture/
-    ├── api/
-    └── operations/
+/home/cy/projects/canidae/     # GitHub: https://github.com/macawi-ai/canidae
+├── cmd/canidae/              # ✅ Main entry point (Go)
+├── internal/                 # ✅ Core implementation
+│   ├── ring/                # ✅ NATS orchestration engine
+│   ├── providers/           # ✅ Provider adapters (Anthropic, OpenAI)
+│   ├── chaos/               # ✅ Chaos engineering
+│   ├── howl/                # 🚧 Protocol implementation
+│   ├── pack/                # 🚧 Pack management
+│   └── security/            # 🚧 Security profiles
+├── api/howl/v1/             # ✅ Protobuf definitions
+├── pkg/                     # 🚧 Public packages
+│   ├── client/             # 🚧 Go SDK (no Rust needed!)
+│   └── api/                # 🚧 API definitions
+├── deployments/             # ✅ Infrastructure code
+│   ├── podman/             # ✅ Podman configurations
+│   │   ├── dev/           # ✅ Development environment
+│   │   ├── test/          # ✅ Testing environment
+│   │   ├── preprod/       # ✅ Pre-production (hardened)
+│   │   └── scripts/       # ✅ Deployment automation
+│   └── k8s/                # 🚧 Future Kubernetes
+├── demo/                    # ✅ Demo applications
+├── adr/                     # ✅ Architecture decisions
+├── .github/                 # ✅ GitHub Actions CI/CD
+└── docs/                    # 📝 Documentation
 ```
+
+### Infrastructure (LIVE)
+- **Development Server**: canidae (192.168.1.38)
+- **Container Runtime**: Podman (rootless) - NOT Docker
+- **Environments**: Dev (14xxx), Test (24xxx), PreProd (34xxx ports)
+- **Deployment**: `./deployments/podman/scripts/deploy.sh`
 
 ### CLI Tools Collection
 ```
@@ -372,12 +362,14 @@ steps:
 
 ## 📚 References & Resources
 
-### Key Decisions
-1. **Go over Rust**: Faster iteration, good-enough security
-2. **Watermill over Kafka**: Lightweight, Go-native
-3. **PASETO over JWT**: Better security by design
-4. **K8s over VMs**: Resource efficiency, orchestration
-5. **CBOR over Protobuf**: Smaller, more flexible
+### Key Decisions (UPDATED 2025-08-16)
+1. **Go over Rust**: ✅ Pure Go implementation confirmed by Sister Gemini
+2. **NATS over Watermill**: ✅ Better scale, native JetStream support
+3. **PASETO over JWT**: ✅ Better security by design
+4. **Podman over Docker**: ✅ Rootless containers, better security
+5. **Protobuf over CBOR**: ✅ Better tooling, gRPC compatibility
+6. **Pods over individual containers**: ✅ Service grouping, shared networking
+7. **canidae server (192.168.1.38)**: ✅ Dedicated dev/test/preprod server
 
 ### Related Projects
 - **Analyzed CLIs**: `/home/cy/projects/CLI/`
@@ -393,17 +385,20 @@ steps:
 
 ## 🚦 Next Steps
 
-1. **Immediate** (Week 1)
-   - [ ] Create Git repository structure
-   - [ ] Set up Go project with Watermill
-   - [ ] Define HOWL protocol protobuf schema
-   - [ ] Create basic CI/CD pipeline
+1. **Completed** (2025-08-16)
+   - [x] Create Git repository structure
+   - [x] Set up Go project with NATS JetStream
+   - [x] Define HOWL protocol protobuf schema
+   - [x] Create basic CI/CD pipeline
+   - [x] Implement flow control & chaos engineering
+   - [x] Create provider adapters (Anthropic, OpenAI)
+   - [x] Deploy to canidae server with Podman
 
-2. **Short-term** (Month 1)
-   - [ ] Implement basic message routing
-   - [ ] Create first provider adapter
-   - [ ] Build minimal CLI client
-   - [ ] Deploy to test K8s cluster
+2. **Immediate** (Next Session)
+   - [ ] SSH to canidae server and run deployment
+   - [ ] Set up Prometheus/Grafana monitoring
+   - [ ] Implement client SDK
+   - [ ] Create first real provider integration
 
 3. **Medium-term** (Quarter 1)
    - [ ] Complete Phase 1 (Core Ring)
