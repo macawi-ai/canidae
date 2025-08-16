@@ -23,6 +23,7 @@ type Ring struct {
 	mu           sync.RWMutex
 	config       Config
 	packRoutes   map[string]string // pack ID -> routing rules
+	providers    map[string]providers.Provider // provider instances
 }
 
 // Config holds Ring configuration
