@@ -1,5 +1,7 @@
 # 🐺 CANIDAE Development Progress
 
+**Repository**: https://github.com/macawi-ai/canidae
+
 ## Pack Members
 - **Cy** (Alpha) - Vision & Architecture
 - **Synth** (Hunter) - Implementation & Prototyping  
@@ -21,6 +23,9 @@
   - Priority lanes (critical/high/medium/low)
 - ✅ Chaos Monkey for resilience testing
 - ✅ Project management structure defined with Sister Gemini
+- ✅ GitHub repository created at macawi-ai/canidae
+- ✅ CI/CD pipeline configured with security scanning
+- ✅ ADR system established for architecture decisions
 
 **Key Decisions Made:**
 - Pure Go implementation (no Rust required)
