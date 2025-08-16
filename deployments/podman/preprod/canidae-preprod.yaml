@@ -1,0 +1,231 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: canidae-preprod
+  labels:
+    environment: preprod
+    project: canidae
+    pack: gamma
+    security: enhanced
+spec:
+  hostname: canidae-preprod
+  containers:
+  
+  # NATS Message Bus (Hardened)
+  - name: nats
+    image: docker.io/library/nats:alpine  # Minimal attack surface
+    ports:
+    - containerPort: 4222  # Client connections
+      hostPort: 34222
+    - containerPort: 8222  # HTTP monitoring (restricted)
+      hostPort: 38222
+    - containerPort: 6222  # Cluster
+    command: ["nats-server"]
+    args:
+    - "--jetstream"
+    - "--store_dir=/data"
+    - "--cluster_name=CANIDAE-PREPROD"
+    - "--http_port=8222"
+    - "--name=nats-preprod"
+    - "--tls"
+    - "--tlscert=/tls/cert.pem"
+    - "--tlskey=/tls/key.pem"
+    - "--tlsverify"
+    - "--tlscacert=/tls/ca.pem"
+    volumeMounts:
+    - mountPath: /data
+      name: nats-data
+    - mountPath: /tls
+      name: tls-certs
+      readOnly: true
+    resources:
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+      requests:
+        memory: "1Gi"
+        cpu: "1000m"
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+  
+  # CANIDAE Ring Orchestrator (Production-ready)
+  - name: ring
+    image: localhost/canidae-ring:preprod
+    ports:
+    - containerPort: 8080  # API (TLS only)
+      hostPort: 38080
+    - containerPort: 9090  # Metrics (internal only)
+    env:
+    - name: CANIDAE_ENV
+      value: "preproduction"
+    - name: NATS_URL
+      value: "tls://localhost:4222"
+    - name: FLOW_CONTROL_MODE
+      value: "strict"
+    - name: SECURITY_PROFILE
+      value: "enterprise"
+    - name: CHAOS_ENABLED
+      value: "false"
+    - name: LOG_LEVEL
+      value: "warn"
+    - name: ENABLE_TRACING
+      value: "true"
+    - name: ENABLE_METRICS
+      value: "true"
+    - name: ENABLE_AUDIT
+      value: "true"
+    - name: TLS_ENABLED
+      value: "true"
+    volumeMounts:
+    - mountPath: /config
+      name: config
+      readOnly: true
+    - mountPath: /logs
+      name: logs
+    - mountPath: /audit
+      name: audit-logs
+    - mountPath: /tls
+      name: tls-certs
+      readOnly: true
+    resources:
+      limits:
+        memory: "4Gi"
+        cpu: "4000m"
+      requests:
+        memory: "2Gi"
+        cpu: "2000m"
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+  
+  # Provider Gateway (Hardened)
+  - name: provider-gateway
+    image: localhost/canidae-providers:preprod
+    ports:
+    - containerPort: 3000  # Provider API (TLS only)
+      hostPort: 33000
+    env:
+    - name: CANIDAE_ENV
+      value: "preproduction"
+    - name: NATS_URL
+      value: "tls://localhost:4222"
+    - name: PROVIDERS_ENABLED
+      value: "anthropic,openai"  # No mock in preprod
+    - name: RATE_LIMIT_MODE
+      value: "strict"
+    - name: REQUEST_VALIDATION
+      value: "strict"
+    - name: REQUIRE_AUTH
+      value: "true"
+    - name: ENABLE_WAF
+      value: "true"
+    - name: TLS_ENABLED
+      value: "true"
+    volumeMounts:
+    - mountPath: /secrets
+      name: secrets
+      readOnly: true
+    - mountPath: /tls
+      name: tls-certs
+      readOnly: true
+    resources:
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+      requests:
+        memory: "1Gi"
+        cpu: "1000m"
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+  
+  # Security Scanner (Continuous security monitoring)
+  - name: security-scanner
+    image: localhost/canidae-security:preprod
+    env:
+    - name: SCAN_INTERVAL
+      value: "3600"  # Scan every hour
+    - name: ALERT_WEBHOOK
+      value: "https://alerts.canidae.local/webhook"
+    volumeMounts:
+    - mountPath: /reports
+      name: security-reports
+    resources:
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+  
+  volumes:
+  # Persistent storage for NATS JetStream
+  - name: nats-data
+    hostPath:
+      path: /opt/canidae/preprod/nats-data
+      type: DirectoryOrCreate
+  
+  # Configuration files (read-only in preprod)
+  - name: config
+    hostPath:
+      path: /opt/canidae/preprod/config
+      type: Directory
+  
+  # Logs
+  - name: logs
+    hostPath:
+      path: /opt/canidae/preprod/logs
+      type: DirectoryOrCreate
+  
+  # Audit logs (separate from application logs)
+  - name: audit-logs
+    hostPath:
+      path: /opt/canidae/preprod/audit
+      type: DirectoryOrCreate
+  
+  # Security scan reports
+  - name: security-reports
+    hostPath:
+      path: /opt/canidae/preprod/security
+      type: DirectoryOrCreate
+  
+  # TLS certificates
+  - name: tls-certs
+    hostPath:
+      path: /opt/canidae/tls
+      type: Directory
+  
+  # Secrets (encrypted at rest)
+  - name: secrets
+    hostPath:
+      path: /opt/canidae/secrets-encrypted
+      type: Directory
+  
+  restartPolicy: Always
+  
+  # Enhanced security context for pre-production
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10000
+    runAsGroup: 10000
+    fsGroup: 10000
+    seccompProfile:
+      type: RuntimeDefault
+    seLinuxOptions:
+      level: "s0:c123,c456"  # MCS labels for additional isolation

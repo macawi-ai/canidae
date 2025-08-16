@@ -1,0 +1,165 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: canidae-test
+  labels:
+    environment: test
+    project: canidae
+    pack: beta
+spec:
+  hostname: canidae-test
+  containers:
+  
+  # NATS Message Bus
+  - name: nats
+    image: docker.io/library/nats:latest
+    ports:
+    - containerPort: 4222  # Client connections
+      hostPort: 24222
+    - containerPort: 8222  # HTTP monitoring
+      hostPort: 28222
+    - containerPort: 6222  # Cluster
+    command: ["nats-server"]
+    args:
+    - "--jetstream"
+    - "--store_dir=/data"
+    - "--cluster_name=CANIDAE-TEST"
+    - "--http_port=8222"
+    - "--name=nats-test"
+    volumeMounts:
+    - mountPath: /data
+      name: nats-data
+    resources:
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+  
+  # CANIDAE Ring Orchestrator
+  - name: ring
+    image: localhost/canidae-ring:test
+    ports:
+    - containerPort: 8080  # API
+      hostPort: 28080
+    - containerPort: 9090  # Metrics
+      hostPort: 29090
+    env:
+    - name: CANIDAE_ENV
+      value: "testing"
+    - name: NATS_URL
+      value: "nats://localhost:4222"
+    - name: FLOW_CONTROL_MODE
+      value: "strict"
+    - name: CHAOS_ENABLED
+      value: "false"  # No chaos in test environment
+    - name: LOG_LEVEL
+      value: "info"
+    - name: ENABLE_TRACING
+      value: "true"
+    volumeMounts:
+    - mountPath: /config
+      name: config
+    - mountPath: /logs
+      name: logs
+    resources:
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+      requests:
+        memory: "1Gi"
+        cpu: "1000m"
+  
+  # Provider Gateway
+  - name: provider-gateway
+    image: localhost/canidae-providers:test
+    ports:
+    - containerPort: 3000  # Provider API
+      hostPort: 23000
+    env:
+    - name: CANIDAE_ENV
+      value: "testing"
+    - name: NATS_URL
+      value: "nats://localhost:4222"
+    - name: PROVIDERS_ENABLED
+      value: "mock,anthropic,openai"
+    - name: RATE_LIMIT_MODE
+      value: "strict"
+    - name: REQUEST_VALIDATION
+      value: "strict"
+    volumeMounts:
+    - mountPath: /secrets
+      name: secrets
+      readOnly: true
+    resources:
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+  
+  # Test Runner (for automated testing)
+  - name: test-runner
+    image: localhost/canidae-tests:test
+    env:
+    - name: CANIDAE_ENV
+      value: "testing"
+    - name: NATS_URL
+      value: "nats://localhost:4222"
+    - name: API_URL
+      value: "http://localhost:8080"
+    - name: RUN_CONTINUOUS
+      value: "true"
+    - name: TEST_INTERVAL
+      value: "300"  # Run tests every 5 minutes
+    volumeMounts:
+    - mountPath: /results
+      name: test-results
+    resources:
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+  
+  volumes:
+  # Persistent storage for NATS JetStream
+  - name: nats-data
+    hostPath:
+      path: /opt/canidae/test/nats-data
+      type: DirectoryOrCreate
+  
+  # Configuration files
+  - name: config
+    hostPath:
+      path: /opt/canidae/test/config
+      type: DirectoryOrCreate
+  
+  # Logs
+  - name: logs
+    hostPath:
+      path: /opt/canidae/test/logs
+      type: DirectoryOrCreate
+  
+  # Test results
+  - name: test-results
+    hostPath:
+      path: /opt/canidae/test/results
+      type: DirectoryOrCreate
+  
+  # Secrets (API keys, etc.)
+  - name: secrets
+    hostPath:
+      path: /opt/canidae/secrets
+      type: Directory
+  
+  restartPolicy: Always
+  
+  # Security context for rootless operation
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault

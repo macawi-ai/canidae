@@ -1,0 +1,36 @@
+[Unit]
+Description=CANIDAE Development Environment
+Documentation=https://github.com/macawi-ai/canidae
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=canidae
+Group=canidae
+WorkingDirectory=/opt/canidae
+
+# Environment
+Environment="PODMAN_SYSTEMD_UNIT=%n"
+Environment="XDG_RUNTIME_DIR=/run/user/%U"
+
+# Start command
+ExecStartPre=/usr/bin/podman pod exists canidae-dev || /usr/bin/podman play kube /opt/canidae/deployments/dev/canidae-dev.yaml
+ExecStart=/usr/bin/podman pod start canidae-dev
+ExecStop=/usr/bin/podman pod stop canidae-dev
+
+# Restart policy
+Restart=on-failure
+RestartSec=30
+StartLimitInterval=200
+StartLimitBurst=5
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/canidae/dev
+
+[Install]
+WantedBy=default.target
