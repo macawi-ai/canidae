@@ -55,12 +55,19 @@ func NewClient(opts ...Option) (*Client, error) {
 		return nil, fmt.Errorf("failed to initialize session manager: %w", err)
 	}
 	
-	return &Client{
+	client := &Client{
 		config:    cfg,
 		transport: transportClient,
 		auth:      authProvider,
 		session:   sessionManager,
-	}, nil
+	}
+	
+	// Set pack ID if configured
+	if cfg.PackID != "" {
+		client.SetPackID(cfg.PackID)
+	}
+	
+	return client, nil
 }
 
 // Connect establishes a connection to the CANIDAE server

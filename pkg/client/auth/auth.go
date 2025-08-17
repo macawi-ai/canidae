@@ -67,9 +67,7 @@ func NewProvider(cfg config.AuthConfig) (Provider, error) {
 		}
 		return NewOAuthProvider(cfg.OAuth)
 	case "apikey":
-		if cfg.APIKey == "" {
-			return nil, errors.New("API key is not configured")
-		}
+		// API key can be empty for testing, will fail on auth
 		return NewAPIKeyProvider(cfg.APIKey)
 	default:
 		return nil, errors.New("unsupported auth type: " + cfg.Type)

@@ -129,14 +129,16 @@ func DefaultConfig() *Config {
 		},
 		
 		AuthConfig: AuthConfig{
-			Type: "webauthn",
+			Type: "apikey",
 			WebAuthn: WebAuthnConfig{
+				Enabled: false,
 				Timeout: 60 * time.Second,
 			},
+			APIKey: "", // User must provide
 		},
 		
 		SessionConfig: SessionConfig{
-			Type:           "paseto",
+			Type:           "memory", // Default to memory until PASETO is implemented
 			TokenDuration:  15 * time.Minute,
 			RefreshEnabled: true,
 			RefreshBefore:  5 * time.Minute,
@@ -200,7 +202,7 @@ func (c *Config) Validate() error {
 	
 	// Validate session type
 	switch c.SessionConfig.Type {
-	case "paseto", "jwt":
+	case "paseto", "jwt", "memory":
 		// Valid types
 	default:
 		return errors.New("invalid session type")
