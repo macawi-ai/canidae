@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CANIDAE WASM Demo - Pack Orchestration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 800px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .subtitle {
+            text-align: center;
+            margin-bottom: 30px;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .pack-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .status.connected {
+            background: #4caf50;
+        }
+        
+        .status.disconnected {
+            background: #f44336;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 1em;
+        }
+        
+        button {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .message-area {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .message {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            animation: slideIn 0.3s;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .message.sent {
+            background: rgba(76, 175, 80, 0.2);
+            border-left: 3px solid #4caf50;
+        }
+        
+        .message.received {
+            background: rgba(33, 150, 243, 0.2);
+            border-left: 3px solid #2196f3;
+        }
+        
+        .message.error {
+            background: rgba(244, 67, 54, 0.2);
+            border-left: 3px solid #f44336;
+        }
+        
+        .message.system {
+            background: rgba(255, 193, 7, 0.2);
+            border-left: 3px solid #ffc107;
+        }
+        
+        .emoji {
+            font-size: 1.5em;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐺 CANIDAE WASM</h1>
+        <p class="subtitle">Pack-Oriented AI Orchestration in the Browser</p>
+        
+        <div class="pack-info">
+            <div class="status disconnected" id="status">Disconnected</div>
+            <div>
+                <strong>Pack ID:</strong> <span id="packId">-</span><br>
+                <strong>Member ID:</strong> <span id="memberId">-</span><br>
+                <strong>Version:</strong> <span id="version">Loading...</span>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="packIdInput">Pack ID:</label>
+            <input type="text" id="packIdInput" value="arctic-pack" placeholder="Enter pack ID">
+        </div>
+        
+        <div class="form-group">
+            <label for="memberIdInput">Member ID:</label>
+            <input type="text" id="memberIdInput" value="synth" placeholder="Enter member ID">
+        </div>
+        
+        <div class="form-group">
+            <label for="wsUrlInput">WebSocket URL:</label>
+            <input type="text" id="wsUrlInput" value="ws://localhost:8080/pack" placeholder="ws://localhost:8080/pack">
+        </div>
+        
+        <div>
+            <button id="connectBtn" onclick="connectPack()">Connect to Pack</button>
+            <button id="disconnectBtn" onclick="disconnectPack()" disabled>Disconnect</button>
+        </div>
+        
+        <div class="form-group" style="margin-top: 20px;">
+            <label for="messageInput">Message:</label>
+            <input type="text" id="messageInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)" disabled>
+        </div>
+        
+        <button id="sendBtn" onclick="sendMessage()" disabled>Send Message</button>
+        
+        <div class="message-area" id="messageArea">
+            <div class="message system">
+                <span class="emoji">📋</span>
+                Waiting for initialization...
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import init, { init_canidae, get_version, PackClient } from './pkg/canidae_wasm.js';
+        
+        let packClient = null;
+        
+        async function initializeWasm() {
+            try {
+                await init();
+                init_canidae();
+                const version = get_version();
+                document.getElementById('version').textContent = version;
+                addMessage('✅ CANIDAE WASM v' + version + ' initialized', 'system');
+            } catch (error) {
+                console.error('Failed to initialize WASM:', error);
+                addMessage('❌ Failed to initialize WASM: ' + error, 'error');
+            }
+        }
+        
+        window.connectPack = function() {
+            try {
+                const packId = document.getElementById('packIdInput').value;
+                const memberId = document.getElementById('memberIdInput').value;
+                const wsUrl = document.getElementById('wsUrlInput').value;
+                
+                if (!packId || !memberId || !wsUrl) {
+                    addMessage('⚠️ Please fill in all fields', 'error');
+                    return;
+                }
+                
+                packClient = new PackClient(packId, memberId, wsUrl);
+                
+                packClient.set_message_callback((msg) => {
+                    addMessage('📦 ' + msg, 'received');
+                });
+                
+                packClient.set_error_callback((err) => {
+                    addMessage('❌ ' + err, 'error');
+                });
+                
+                packClient.connect();
+                
+                document.getElementById('packId').textContent = packId;
+                document.getElementById('memberId').textContent = memberId;
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('status').className = 'status connected';
+                
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+                
+                addMessage('🔗 Connecting to pack: ' + packId, 'system');
+                
+            } catch (error) {
+                console.error('Connection error:', error);
+                addMessage('❌ Connection failed: ' + error, 'error');
+            }
+        };
+        
+        window.disconnectPack = function() {
+            if (packClient) {
+                packClient.disconnect();
+                packClient = null;
+                
+                document.getElementById('packId').textContent = '-';
+                document.getElementById('memberId').textContent = '-';
+                document.getElementById('status').textContent = 'Disconnected';
+                document.getElementById('status').className = 'status disconnected';
+                
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                document.getElementById('messageInput').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+                
+                addMessage('👋 Disconnected from pack', 'system');
+            }
+        };
+        
+        window.sendMessage = function() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            try {
+                packClient.send_message(message);
+                addMessage('📤 ' + message, 'sent');
+                input.value = '';
+            } catch (error) {
+                console.error('Send error:', error);
+                addMessage('❌ Failed to send: ' + error, 'error');
+            }
+        };
+        
+        window.handleKeyPress = function(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        };
+        
+        function addMessage(text, type) {
+            const messageArea = document.getElementById('messageArea');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ' + type;
+            messageDiv.textContent = text;
+            messageArea.appendChild(messageDiv);
+            messageArea.scrollTop = messageArea.scrollHeight;
+        }
+        
+        // Initialize on page load
+        initializeWasm();
+    </script>
+</body>
+</html>

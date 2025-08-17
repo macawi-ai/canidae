@@ -1,0 +1,25 @@
+{
+  "name": "canidae-wasm",
+  "type": "module",
+  "collaborators": [
+    "Synth <synth@macawi.ai>",
+    "Cy <cy@macawi.ai>"
+  ],
+  "description": "WebAssembly bindings for CANIDAE pack orchestration",
+  "version": "1.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/macawi-ai/canidae"
+  },
+  "files": [
+    "canidae_wasm_bg.wasm",
+    "canidae_wasm.js",
+    "canidae_wasm.d.ts"
+  ],
+  "main": "canidae_wasm.js",
+  "types": "canidae_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
