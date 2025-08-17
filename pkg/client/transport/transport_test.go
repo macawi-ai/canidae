@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"testing"
 	"time"
-	
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	
+
 	"github.com/macawi-ai/canidae/pkg/client/config"
 	"github.com/macawi-ai/canidae/pkg/client/transport"
 )
@@ -29,7 +29,7 @@ func TestRequestCreation(t *testing.T) {
 		},
 		Timeout: 30 * time.Second,
 	}
-	
+
 	assert.Equal(t, "test-123", req.ID)
 	assert.Equal(t, transport.RequestTypeExecute, req.Type)
 	assert.NotNil(t, req.Payload)
@@ -43,15 +43,15 @@ func TestResponseParsing(t *testing.T) {
 		Message string `json:"message"`
 		Value   int    `json:"value"`
 	}
-	
+
 	testData := TestData{
 		Message: "test message",
 		Value:   42,
 	}
-	
+
 	data, err := json.Marshal(testData)
 	require.NoError(t, err)
-	
+
 	resp := &transport.Response{
 		ID:      "resp-123",
 		Success: true,
@@ -63,14 +63,14 @@ func TestResponseParsing(t *testing.T) {
 			"processed": "true",
 		},
 	}
-	
+
 	// Test unmarshaling
 	var result TestData
 	err = resp.UnmarshalTo(&result)
 	assert.NoError(t, err)
 	assert.Equal(t, "test message", result.Message)
 	assert.Equal(t, 42, result.Value)
-	
+
 	// Test error response
 	errResp := &transport.Response{
 		ID:      "err-123",
@@ -81,7 +81,7 @@ func TestResponseParsing(t *testing.T) {
 			Details: "Missing required field: prompt",
 		},
 	}
-	
+
 	assert.False(t, errResp.Success)
 	assert.NotNil(t, errResp.Error)
 	assert.Equal(t, "INVALID_REQUEST", errResp.Error.Code)
@@ -97,7 +97,7 @@ func TestRequestTypes(t *testing.T) {
 		transport.RequestTypeStream,
 		transport.RequestTypeControl,
 	}
-	
+
 	for _, reqType := range types {
 		t.Run(string(reqType), func(t *testing.T) {
 			assert.NotEmpty(t, reqType)
@@ -113,7 +113,7 @@ func TestStreamEventTypes(t *testing.T) {
 		transport.StreamEventTypeComplete,
 		transport.StreamEventTypeHeartbeat,
 	}
-	
+
 	for _, eventType := range types {
 		t.Run(string(eventType), func(t *testing.T) {
 			event := &transport.StreamEvent{
@@ -123,7 +123,7 @@ func TestStreamEventTypes(t *testing.T) {
 					"event_type": string(eventType),
 				},
 			}
-			
+
 			assert.Equal(t, eventType, event.Type)
 			assert.NotNil(t, event.Data)
 			assert.NotNil(t, event.Metadata)
@@ -141,7 +141,7 @@ func TestMetrics(t *testing.T) {
 		AverageLatency:    100 * time.Millisecond,
 		LastActivity:      time.Now(),
 	}
-	
+
 	assert.Equal(t, int64(10), metrics.RequestsSent)
 	assert.Equal(t, int64(9), metrics.ResponsesReceived)
 	assert.Equal(t, int64(1), metrics.ErrorCount)
@@ -170,7 +170,7 @@ func TestTransportConfig(t *testing.T) {
 		StreamBufferSize: 1024,
 		MaxMessageSize:   4 * 1024 * 1024,
 	}
-	
+
 	assert.Equal(t, "grpc", cfg.Type)
 	assert.True(t, cfg.TLS.Enabled)
 	assert.Equal(t, "cert.pem", cfg.TLS.CertFile)
@@ -219,7 +219,7 @@ func TestTransportCreation(t *testing.T) {
 			errorMsg:    "unsupported transport type",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client, err := transport.New(tt.cfg)
@@ -241,13 +241,13 @@ func TestTransportCreation(t *testing.T) {
 func TestStreamHandler(t *testing.T) {
 	called := false
 	var receivedEvent *transport.StreamEvent
-	
+
 	handler := func(event *transport.StreamEvent) error {
 		called = true
 		receivedEvent = event
 		return nil
 	}
-	
+
 	testEvent := &transport.StreamEvent{
 		Type: transport.StreamEventTypeData,
 		Data: json.RawMessage(`{"message": "test"}`),
@@ -255,7 +255,7 @@ func TestStreamHandler(t *testing.T) {
 			"test": "true",
 		},
 	}
-	
+
 	err := handler(testEvent)
 	assert.NoError(t, err)
 	assert.True(t, called)
@@ -269,22 +269,22 @@ func TestConnectionMethods(t *testing.T) {
 	cfg := config.TransportConfig{
 		Type: "grpc",
 	}
-	
+
 	client, err := transport.New(cfg)
 	require.NoError(t, err)
 	require.NotNil(t, client)
-	
+
 	// Test that all interface methods exist
 	ctx := context.Background()
-	
+
 	// These will fail without a server, but we're just testing the interface
 	_ = client.Connect(ctx)
 	_ = client.Disconnect(ctx)
 	_ = client.IsConnected()
-	
+
 	client.SetSession("test-session")
 	client.SetHeader("X-Test", "value")
-	
+
 	metrics := client.GetMetrics()
 	assert.NotNil(t, metrics)
 }
@@ -308,18 +308,18 @@ func BenchmarkResponseUnmarshal(b *testing.B) {
 		Message string `json:"message"`
 		Value   int    `json:"value"`
 	}
-	
+
 	data, _ := json.Marshal(TestData{
 		Message: "benchmark",
 		Value:   42,
 	})
-	
+
 	resp := &transport.Response{
 		ID:      "bench-123",
 		Success: true,
 		Data:    json.RawMessage(data),
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var result TestData

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
-	
+
 	"github.com/macawi-ai/canidae/pkg/client/config"
 )
 
@@ -31,25 +31,25 @@ const (
 type Client interface {
 	// Connect establishes a connection to the server
 	Connect(ctx context.Context) error
-	
+
 	// Disconnect closes the connection
 	Disconnect(ctx context.Context) error
-	
+
 	// Send sends a request and waits for response
 	Send(ctx context.Context, req *Request) (*Response, error)
-	
+
 	// Stream opens a streaming connection
 	Stream(ctx context.Context, handler StreamHandler) error
-	
+
 	// IsConnected returns true if connected
 	IsConnected() bool
-	
+
 	// SetSession sets the session token
 	SetSession(session interface{})
-	
+
 	// SetHeader sets a custom header
 	SetHeader(key, value string)
-	
+
 	// GetMetrics returns transport metrics
 	GetMetrics() *Metrics
 }
@@ -112,21 +112,21 @@ type StreamEvent struct {
 type StreamEventType string
 
 const (
-	StreamEventTypeData     StreamEventType = "data"
-	StreamEventTypeError    StreamEventType = "error"
-	StreamEventTypeComplete StreamEventType = "complete"
+	StreamEventTypeData      StreamEventType = "data"
+	StreamEventTypeError     StreamEventType = "error"
+	StreamEventTypeComplete  StreamEventType = "complete"
 	StreamEventTypeHeartbeat StreamEventType = "heartbeat"
 )
 
 // Metrics represents transport metrics
 type Metrics struct {
-	RequestsSent     int64         `json:"requests_sent"`
-	ResponsesReceived int64        `json:"responses_received"`
-	ErrorCount       int64         `json:"error_count"`
-	BytesSent        int64         `json:"bytes_sent"`
-	BytesReceived    int64         `json:"bytes_received"`
-	AverageLatency   time.Duration `json:"average_latency"`
-	LastActivity     time.Time     `json:"last_activity"`
+	RequestsSent      int64         `json:"requests_sent"`
+	ResponsesReceived int64         `json:"responses_received"`
+	ErrorCount        int64         `json:"error_count"`
+	BytesSent         int64         `json:"bytes_sent"`
+	BytesReceived     int64         `json:"bytes_received"`
+	AverageLatency    time.Duration `json:"average_latency"`
+	LastActivity      time.Time     `json:"last_activity"`
 }
 
 // New creates a new transport client based on configuration

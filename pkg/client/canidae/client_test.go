@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 	"time"
-	
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	
+
 	"github.com/macawi-ai/canidae/pkg/client/canidae"
 )
 
@@ -18,8 +18,8 @@ func TestClientCreation(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "valid client with defaults",
-			opts: []canidae.Option{},
+			name:    "valid client with defaults",
+			opts:    []canidae.Option{},
 			wantErr: false,
 		},
 		{
@@ -67,7 +67,7 @@ func TestClientCreation(t *testing.T) {
 			wantErr: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client, err := canidae.NewClient(tt.opts...)
@@ -77,7 +77,7 @@ func TestClientCreation(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, client)
-				
+
 				// Check status
 				status := client.GetStatus()
 				assert.NotNil(t, status)
@@ -119,7 +119,7 @@ func TestExecuteRequest(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "missing agent",
+			name: "missing agent",
 			request: &canidae.ExecuteRequest{
 				Prompt: "Test prompt",
 			},
@@ -127,7 +127,7 @@ func TestExecuteRequest(t *testing.T) {
 			errMsg:  "agent type is required",
 		},
 		{
-			name:    "missing prompt",
+			name: "missing prompt",
 			request: &canidae.ExecuteRequest{
 				Agent: canidae.AgentTypeGemini,
 			},
@@ -141,7 +141,7 @@ func TestExecuteRequest(t *testing.T) {
 			errMsg:  "agent type is required",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.request.Validate()
@@ -270,7 +270,7 @@ func TestChainRequest(t *testing.T) {
 			errMsg:  "invalid dependency",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.request.Validate()
@@ -393,7 +393,7 @@ func TestPackRequest(t *testing.T) {
 			errMsg:  "pack alpha is required",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.request.Validate()
@@ -416,7 +416,7 @@ func TestClientStatus(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, client)
-	
+
 	// Check initial status
 	status := client.GetStatus()
 	assert.False(t, status.Connected)
@@ -424,7 +424,7 @@ func TestClientStatus(t *testing.T) {
 	assert.Equal(t, "test-pack", status.PackID)
 	assert.Equal(t, "192.168.1.38:14001", status.ServerEndpoint)
 	assert.WithinDuration(t, time.Now(), status.LastActivity, 1*time.Second)
-	
+
 	// Set pack ID
 	client.SetPackID("new-pack")
 	status = client.GetStatus()
@@ -439,7 +439,7 @@ func TestSecurityProfiles(t *testing.T) {
 		canidae.SecurityProfileDebug,
 		canidae.SecurityProfilePermissive,
 	}
-	
+
 	for _, profile := range profiles {
 		t.Run(string(profile), func(t *testing.T) {
 			client, err := canidae.NewClient(
@@ -459,7 +459,7 @@ func TestAgentTypes(t *testing.T) {
 		canidae.AgentTypeOllama,
 		canidae.AgentTypeDeepSeek,
 	}
-	
+
 	for _, agent := range agents {
 		t.Run(string(agent), func(t *testing.T) {
 			req := &canidae.ExecuteRequest{
@@ -477,23 +477,23 @@ func TestConnectionLifecycle(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping connection test in short mode")
 	}
-	
+
 	client, err := canidae.NewClient(
 		canidae.WithServerEndpoint("localhost:50051"),
 		canidae.WithAPIKey("test-key"),
 		canidae.WithTimeout(5*time.Second),
 	)
 	require.NoError(t, err)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	// This will fail without a running server, which is expected
 	err = client.Connect(ctx)
 	if err != nil {
 		t.Logf("Expected connection error without server: %v", err)
 	}
-	
+
 	// Disconnect should work even if not connected
 	err = client.Disconnect(ctx)
 	assert.NoError(t, err)
@@ -517,7 +517,7 @@ func BenchmarkRequestValidation(b *testing.B) {
 		Prompt: "Benchmark prompt",
 		Model:  "claude-3-opus",
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = req.Validate()

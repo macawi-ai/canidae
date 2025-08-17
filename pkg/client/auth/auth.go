@@ -4,43 +4,43 @@ import (
 	"context"
 	"errors"
 	"time"
-	
+
 	"github.com/macawi-ai/canidae/pkg/client/config"
 )
 
 // Common errors
 var (
 	ErrAuthenticationFailed = errors.New("authentication failed")
-	ErrMFARequired         = errors.New("MFA required")
-	ErrInvalidCredentials  = errors.New("invalid credentials")
-	ErrTokenExpired        = errors.New("token expired")
+	ErrMFARequired          = errors.New("MFA required")
+	ErrInvalidCredentials   = errors.New("invalid credentials")
+	ErrTokenExpired         = errors.New("token expired")
 )
 
 // Provider represents an authentication provider
 type Provider interface {
 	// Authenticate performs authentication and returns a token
 	Authenticate(ctx context.Context) (*Token, error)
-	
+
 	// Refresh refreshes an existing token
 	Refresh(ctx context.Context, token *Token) (*Token, error)
-	
+
 	// Revoke revokes a token
 	Revoke(ctx context.Context, token *Token) error
-	
+
 	// GetType returns the provider type
 	GetType() string
-	
+
 	// IsInteractive returns true if the provider requires user interaction
 	IsInteractive() bool
 }
 
 // Token represents an authentication token
 type Token struct {
-	Type       string    `json:"type"`       // bearer, paseto, etc.
-	Value      string    `json:"value"`      // The actual token
-	ExpiresAt  time.Time `json:"expires_at"`
-	RefreshToken string  `json:"refresh_token,omitempty"`
-	Metadata   map[string]string `json:"metadata,omitempty"`
+	Type         string            `json:"type"`  // bearer, paseto, etc.
+	Value        string            `json:"value"` // The actual token
+	ExpiresAt    time.Time         `json:"expires_at"`
+	RefreshToken string            `json:"refresh_token,omitempty"`
+	Metadata     map[string]string `json:"metadata,omitempty"`
 }
 
 // IsExpired checks if the token is expired

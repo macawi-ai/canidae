@@ -8,7 +8,7 @@ import (
 	"errors"
 	"sync"
 	"time"
-	
+
 	"github.com/macawi-ai/canidae/pkg/client/canidae"
 )
 
@@ -31,54 +31,55 @@ func NewCanidaeClient() *CanidaeClient {
 
 // Initialize initializes the client with configuration
 // Config should be a JSON string with the following structure:
-// {
-//   "serverEndpoint": "192.168.1.38:14001",
-//   "packID": "mobile-pack",
-//   "apiKey": "your-api-key",
-//   "securityProfile": "enterprise"
-// }
+//
+//	{
+//	  "serverEndpoint": "192.168.1.38:14001",
+//	  "packID": "mobile-pack",
+//	  "apiKey": "your-api-key",
+//	  "securityProfile": "enterprise"
+//	}
 func (c *CanidaeClient) Initialize(configJSON string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	var config struct {
 		ServerEndpoint  string `json:"serverEndpoint"`
 		PackID          string `json:"packID"`
 		APIKey          string `json:"apiKey"`
 		SecurityProfile string `json:"securityProfile"`
 	}
-	
+
 	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
 		return errors.New("invalid configuration JSON: " + err.Error())
 	}
-	
+
 	// Build options
 	opts := []canidae.Option{
 		canidae.WithTimeout(30 * time.Second),
 	}
-	
+
 	if config.ServerEndpoint != "" {
 		opts = append(opts, canidae.WithServerEndpoint(config.ServerEndpoint))
 	}
-	
+
 	if config.PackID != "" {
 		opts = append(opts, canidae.WithPackID(config.PackID))
 	}
-	
+
 	if config.APIKey != "" {
 		opts = append(opts, canidae.WithAPIKey(config.APIKey))
 	}
-	
+
 	if config.SecurityProfile != "" {
 		opts = append(opts, canidae.WithSecurityProfile(canidae.SecurityProfile(config.SecurityProfile)))
 	}
-	
+
 	// Create client
 	client, err := canidae.NewClient(opts...)
 	if err != nil {
 		return err
 	}
-	
+
 	c.client = client
 	return nil
 }
@@ -87,11 +88,11 @@ func (c *CanidaeClient) Initialize(configJSON string) error {
 func (c *CanidaeClient) Connect() error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	if c.client == nil {
 		return errors.New("client not initialized")
 	}
-	
+
 	return c.client.Connect(c.ctx)
 }
 
@@ -99,31 +100,32 @@ func (c *CanidaeClient) Connect() error {
 func (c *CanidaeClient) Disconnect() error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	if c.client == nil {
 		return errors.New("client not initialized")
 	}
-	
+
 	return c.client.Disconnect(c.ctx)
 }
 
 // ExecuteAgent executes a single AI agent
 // Request should be a JSON string with the following structure:
-// {
-//   "agent": "anthropic",
-//   "prompt": "Your prompt here",
-//   "model": "claude-3-opus",
-//   "temperature": 0.7,
-//   "maxTokens": 500
-// }
+//
+//	{
+//	  "agent": "anthropic",
+//	  "prompt": "Your prompt here",
+//	  "model": "claude-3-opus",
+//	  "temperature": 0.7,
+//	  "maxTokens": 500
+//	}
 func (c *CanidaeClient) ExecuteAgent(requestJSON string) (string, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	if c.client == nil {
 		return "", errors.New("client not initialized")
 	}
-	
+
 	var request struct {
 		Agent       string  `json:"agent"`
 		Prompt      string  `json:"prompt"`
@@ -131,11 +133,11 @@ func (c *CanidaeClient) ExecuteAgent(requestJSON string) (string, error) {
 		Temperature float32 `json:"temperature"`
 		MaxTokens   int     `json:"maxTokens"`
 	}
-	
+
 	if err := json.Unmarshal([]byte(requestJSON), &request); err != nil {
 		return "", errors.New("invalid request JSON: " + err.Error())
 	}
-	
+
 	// Create execute request
 	execReq := &canidae.ExecuteRequest{
 		Agent:       canidae.AgentType(request.Agent),
@@ -144,19 +146,19 @@ func (c *CanidaeClient) ExecuteAgent(requestJSON string) (string, error) {
 		Temperature: request.Temperature,
 		MaxTokens:   request.MaxTokens,
 	}
-	
+
 	// Execute
 	resp, err := c.client.ExecuteAgent(c.ctx, execReq)
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Convert response to JSON
 	responseJSON, err := json.Marshal(resp)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return string(responseJSON), nil
 }
 
@@ -165,11 +167,11 @@ func (c *CanidaeClient) ExecuteAgent(requestJSON string) (string, error) {
 func (c *CanidaeClient) ChainAgents(requestJSON string) (string, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	if c.client == nil {
 		return "", errors.New("client not initialized")
 	}
-	
+
 	var request struct {
 		Steps []struct {
 			Agent       string   `json:"agent"`
@@ -181,11 +183,11 @@ func (c *CanidaeClient) ChainAgents(requestJSON string) (string, error) {
 		} `json:"steps"`
 		ContinueOnError bool `json:"continueOnError"`
 	}
-	
+
 	if err := json.Unmarshal([]byte(requestJSON), &request); err != nil {
 		return "", errors.New("invalid request JSON: " + err.Error())
 	}
-	
+
 	// Build chain steps
 	steps := make([]canidae.ChainStep, len(request.Steps))
 	for i, step := range request.Steps {
@@ -198,25 +200,25 @@ func (c *CanidaeClient) ChainAgents(requestJSON string) (string, error) {
 			DependsOn:   step.DependsOn,
 		}
 	}
-	
+
 	// Create chain request
 	chainReq := &canidae.ChainRequest{
 		Steps:           steps,
 		ContinueOnError: request.ContinueOnError,
 	}
-	
+
 	// Execute chain
 	resp, err := c.client.ChainAgents(c.ctx, chainReq)
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Convert response to JSON
 	responseJSON, err := json.Marshal(resp)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return string(responseJSON), nil
 }
 
@@ -224,19 +226,19 @@ func (c *CanidaeClient) ChainAgents(requestJSON string) (string, error) {
 func (c *CanidaeClient) GetStatus() (string, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	if c.client == nil {
 		return "", errors.New("client not initialized")
 	}
-	
+
 	status := c.client.GetStatus()
-	
+
 	// Convert to JSON
 	statusJSON, err := json.Marshal(status)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return string(statusJSON), nil
 }
 
@@ -244,11 +246,11 @@ func (c *CanidaeClient) GetStatus() (string, error) {
 func (c *CanidaeClient) SetPackID(packID string) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	if c.client == nil {
 		return errors.New("client not initialized")
 	}
-	
+
 	c.client.SetPackID(packID)
 	return nil
 }
@@ -257,15 +259,15 @@ func (c *CanidaeClient) SetPackID(packID string) error {
 func (c *CanidaeClient) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	if c.cancel != nil {
 		c.cancel()
 	}
-	
+
 	if c.client != nil {
 		return c.client.Disconnect(context.Background())
 	}
-	
+
 	return nil
 }
 
@@ -304,7 +306,7 @@ func GetAgentTypes() string {
 		string(AgentTypeOllama),
 		string(AgentTypeDeepSeek),
 	}
-	
+
 	data, _ := json.Marshal(agents)
 	return string(data)
 }
@@ -318,7 +320,7 @@ func GetSecurityProfiles() string {
 		string(SecurityProfileDebug),
 		string(SecurityProfilePermissive),
 	}
-	
+
 	data, _ := json.Marshal(profiles)
 	return string(data)
 }
@@ -332,7 +334,7 @@ func CreateExecuteRequest(agent, prompt, model string, temperature float32, maxT
 		"temperature": temperature,
 		"maxTokens":   maxTokens,
 	}
-	
+
 	data, _ := json.Marshal(request)
 	return string(data)
 }
@@ -344,7 +346,7 @@ func CreateChainStep(agent, prompt, model string) string {
 		"prompt": prompt,
 		"model":  model,
 	}
-	
+
 	data, _ := json.Marshal(step)
 	return string(data)
 }

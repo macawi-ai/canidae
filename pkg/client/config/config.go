@@ -9,48 +9,48 @@ import (
 // Config represents the client configuration
 type Config struct {
 	// Server settings
-	ServerEndpoint         string            `json:"server_endpoint" yaml:"server_endpoint"`
-	PackID                 string            `json:"pack_id" yaml:"pack_id"`
-	DefaultSecurityProfile string            `json:"default_security_profile" yaml:"default_security_profile"`
-	
+	ServerEndpoint         string `json:"server_endpoint" yaml:"server_endpoint"`
+	PackID                 string `json:"pack_id" yaml:"pack_id"`
+	DefaultSecurityProfile string `json:"default_security_profile" yaml:"default_security_profile"`
+
 	// Timeouts
-	RequestTimeout   time.Duration `json:"request_timeout" yaml:"request_timeout"`
+	RequestTimeout    time.Duration `json:"request_timeout" yaml:"request_timeout"`
 	ConnectionTimeout time.Duration `json:"connection_timeout" yaml:"connection_timeout"`
-	
+
 	// Transport configuration
 	TransportConfig TransportConfig `json:"transport" yaml:"transport"`
-	
+
 	// Auth configuration
 	AuthConfig AuthConfig `json:"auth" yaml:"auth"`
-	
+
 	// Session configuration
 	SessionConfig SessionConfig `json:"session" yaml:"session"`
-	
+
 	// Logging
 	LogLevel string `json:"log_level" yaml:"log_level"`
-	
+
 	// Default metadata
 	DefaultMetadata map[string]string `json:"default_metadata" yaml:"default_metadata"`
 }
 
 // TransportConfig represents transport layer configuration
 type TransportConfig struct {
-	Type             string        `json:"type" yaml:"type"` // grpc, grpcweb, http
-	TLS              TLSConfig     `json:"tls" yaml:"tls"`
-	Retry            RetryConfig   `json:"retry" yaml:"retry"`
-	StreamBufferSize int           `json:"stream_buffer_size" yaml:"stream_buffer_size"`
-	MaxMessageSize   int           `json:"max_message_size" yaml:"max_message_size"`
+	Type             string      `json:"type" yaml:"type"` // grpc, grpcweb, http
+	TLS              TLSConfig   `json:"tls" yaml:"tls"`
+	Retry            RetryConfig `json:"retry" yaml:"retry"`
+	StreamBufferSize int         `json:"stream_buffer_size" yaml:"stream_buffer_size"`
+	MaxMessageSize   int         `json:"max_message_size" yaml:"max_message_size"`
 }
 
 // TLSConfig represents TLS configuration
 type TLSConfig struct {
-	Enabled         bool     `json:"enabled" yaml:"enabled"`
-	CertFile        string   `json:"cert_file" yaml:"cert_file"`
-	KeyFile         string   `json:"key_file" yaml:"key_file"`
-	CAFile          string   `json:"ca_file" yaml:"ca_file"`
-	ServerName      string   `json:"server_name" yaml:"server_name"`
-	InsecureSkipVerify bool  `json:"insecure_skip_verify" yaml:"insecure_skip_verify"`
-	CertificatePins []string `json:"certificate_pins" yaml:"certificate_pins"`
+	Enabled            bool     `json:"enabled" yaml:"enabled"`
+	CertFile           string   `json:"cert_file" yaml:"cert_file"`
+	KeyFile            string   `json:"key_file" yaml:"key_file"`
+	CAFile             string   `json:"ca_file" yaml:"ca_file"`
+	ServerName         string   `json:"server_name" yaml:"server_name"`
+	InsecureSkipVerify bool     `json:"insecure_skip_verify" yaml:"insecure_skip_verify"`
+	CertificatePins    []string `json:"certificate_pins" yaml:"certificate_pins"`
 }
 
 // RetryConfig represents retry configuration
@@ -63,18 +63,18 @@ type RetryConfig struct {
 
 // AuthConfig represents authentication configuration
 type AuthConfig struct {
-	Type     string           `json:"type" yaml:"type"` // webauthn, oauth, apikey
-	WebAuthn WebAuthnConfig   `json:"webauthn" yaml:"webauthn"`
-	OAuth    OAuthConfig      `json:"oauth" yaml:"oauth"`
-	APIKey   string           `json:"api_key" yaml:"api_key"`
-	MFA      MFAConfig        `json:"mfa" yaml:"mfa"`
+	Type     string         `json:"type" yaml:"type"` // webauthn, oauth, apikey
+	WebAuthn WebAuthnConfig `json:"webauthn" yaml:"webauthn"`
+	OAuth    OAuthConfig    `json:"oauth" yaml:"oauth"`
+	APIKey   string         `json:"api_key" yaml:"api_key"`
+	MFA      MFAConfig      `json:"mfa" yaml:"mfa"`
 }
 
 // WebAuthnConfig represents WebAuthn configuration
 type WebAuthnConfig struct {
-	Enabled  bool   `json:"enabled" yaml:"enabled"`
-	RPID     string `json:"rp_id" yaml:"rp_id"`
-	RPOrigin string `json:"rp_origin" yaml:"rp_origin"`
+	Enabled  bool          `json:"enabled" yaml:"enabled"`
+	RPID     string        `json:"rp_id" yaml:"rp_id"`
+	RPOrigin string        `json:"rp_origin" yaml:"rp_origin"`
 	Timeout  time.Duration `json:"timeout" yaml:"timeout"`
 }
 
@@ -112,7 +112,7 @@ func DefaultConfig() *Config {
 		DefaultSecurityProfile: "enterprise",
 		RequestTimeout:         30 * time.Second,
 		ConnectionTimeout:      10 * time.Second,
-		
+
 		TransportConfig: TransportConfig{
 			Type: "grpc",
 			TLS: TLSConfig{
@@ -127,7 +127,7 @@ func DefaultConfig() *Config {
 			StreamBufferSize: 1024,
 			MaxMessageSize:   4 * 1024 * 1024, // 4MB
 		},
-		
+
 		AuthConfig: AuthConfig{
 			Type: "apikey",
 			WebAuthn: WebAuthnConfig{
@@ -136,7 +136,7 @@ func DefaultConfig() *Config {
 			},
 			APIKey: "", // User must provide
 		},
-		
+
 		SessionConfig: SessionConfig{
 			Type:           "memory", // Default to memory until PASETO is implemented
 			TokenDuration:  15 * time.Minute,
@@ -144,7 +144,7 @@ func DefaultConfig() *Config {
 			RefreshBefore:  5 * time.Minute,
 			Storage:        "memory",
 		},
-		
+
 		LogLevel: "info",
 	}
 }
@@ -155,12 +155,12 @@ func (c *Config) Validate() error {
 	if c.ServerEndpoint == "" {
 		return errors.New("server endpoint is required")
 	}
-	
+
 	// Parse and validate URL
 	if _, err := url.Parse("https://" + c.ServerEndpoint); err != nil {
 		return errors.New("invalid server endpoint")
 	}
-	
+
 	// Validate transport type
 	switch c.TransportConfig.Type {
 	case "grpc", "grpcweb", "http":
@@ -168,7 +168,7 @@ func (c *Config) Validate() error {
 	default:
 		return errors.New("invalid transport type")
 	}
-	
+
 	// Validate auth type
 	switch c.AuthConfig.Type {
 	case "webauthn", "oauth", "apikey":
@@ -176,7 +176,7 @@ func (c *Config) Validate() error {
 	default:
 		return errors.New("invalid auth type")
 	}
-	
+
 	// Validate WebAuthn if enabled
 	if c.AuthConfig.WebAuthn.Enabled {
 		if c.AuthConfig.WebAuthn.RPID == "" {
@@ -186,7 +186,7 @@ func (c *Config) Validate() error {
 			return errors.New("WebAuthn RP Origin is required")
 		}
 	}
-	
+
 	// Validate OAuth if enabled
 	if c.AuthConfig.OAuth.Enabled {
 		if c.AuthConfig.OAuth.ClientID == "" {
@@ -199,7 +199,7 @@ func (c *Config) Validate() error {
 			return errors.New("OAuth token URL is required")
 		}
 	}
-	
+
 	// Validate session type
 	switch c.SessionConfig.Type {
 	case "paseto", "jwt", "memory":
@@ -207,7 +207,7 @@ func (c *Config) Validate() error {
 	default:
 		return errors.New("invalid session type")
 	}
-	
+
 	// Validate TLS if enabled
 	if c.TransportConfig.TLS.Enabled {
 		if c.TransportConfig.Type == "grpc" {
@@ -220,6 +220,6 @@ func (c *Config) Validate() error {
 			}
 		}
 	}
-	
+
 	return nil
 }

@@ -2,7 +2,7 @@ package canidae
 
 import (
 	"time"
-	
+
 	"github.com/macawi-ai/canidae/pkg/client/config"
 )
 

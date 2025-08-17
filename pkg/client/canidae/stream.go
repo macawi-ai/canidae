@@ -4,10 +4,10 @@ package canidae
 type StreamEventType string
 
 const (
-	StreamEventTypeConnect    StreamEventType = "connect"
-	StreamEventTypeData       StreamEventType = "data"
-	StreamEventTypeError      StreamEventType = "error"
-	StreamEventTypeComplete   StreamEventType = "complete"
-	StreamEventTypeHeartbeat  StreamEventType = "heartbeat"
-	StreamEventTypeProgress   StreamEventType = "progress"
+	StreamEventTypeConnect   StreamEventType = "connect"
+	StreamEventTypeData      StreamEventType = "data"
+	StreamEventTypeError     StreamEventType = "error"
+	StreamEventTypeComplete  StreamEventType = "complete"
+	StreamEventTypeHeartbeat StreamEventType = "heartbeat"
+	StreamEventTypeProgress  StreamEventType = "progress"
 )
