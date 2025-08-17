@@ -143,10 +143,9 @@ func New(cfg config.TransportConfig) (Client, error) {
 	}
 }
 
-// NewGRPCClient creates a new gRPC client (to be implemented)
+// NewGRPCClient creates a new gRPC client
 func NewGRPCClient(cfg config.TransportConfig) (Client, error) {
-	// This will be implemented in grpc.go
-	return nil, errors.New("gRPC transport not yet implemented")
+	return NewGRPCTransport(cfg)
 }
 
 // NewGRPCWebClient creates a new gRPC-Web client (to be implemented)

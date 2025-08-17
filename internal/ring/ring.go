@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 	
-	"github.com/canidae/canidae/internal/providers"
-	"github.com/canidae/canidae/pkg/types"
+	"github.com/macawi-ai/canidae/internal/providers"
+	"github.com/macawi-ai/canidae/pkg/types"
 	"github.com/nats-io/nats.go"
 )
 

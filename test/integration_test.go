@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 	
-	"github.com/canidae/canidae/internal/providers"
-	"github.com/canidae/canidae/internal/ring"
-	"github.com/canidae/canidae/pkg/types"
+	"github.com/macawi-ai/canidae/internal/providers"
+	"github.com/macawi-ai/canidae/internal/ring"
+	"github.com/macawi-ai/canidae/pkg/types"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

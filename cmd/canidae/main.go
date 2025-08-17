@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 	
-	"github.com/canidae/canidae/internal/ring"
-	"github.com/canidae/canidae/pkg/types"
+	"github.com/macawi-ai/canidae/internal/ring"
+	"github.com/macawi-ai/canidae/pkg/types"
 )
 
 // Server wraps the Ring orchestrator with HTTP endpoints

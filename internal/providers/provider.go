@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 	
-	"github.com/canidae/canidae/pkg/types"
+	"github.com/macawi-ai/canidae/pkg/types"
 )
 
 // BaseProvider provides common functionality for all providers

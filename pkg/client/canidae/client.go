@@ -177,7 +177,20 @@ func (c *Client) SummonPack(ctx context.Context, req *PackRequest) (*PackRespons
 
 // Stream opens a streaming connection for real-time agent communication
 func (c *Client) Stream(ctx context.Context, handler StreamHandler) error {
-	return c.transport.Stream(ctx, handler)
+	// Convert our handler to transport handler
+	transportHandler := func(event *transport.StreamEvent) error {
+		// Convert transport event to our event type
+		clientEvent := StreamEvent{
+			Type:     StreamEventType(event.Type),
+			Data:     event.Data,
+			Metadata: event.Metadata,
+		}
+		if event.Error != nil {
+			clientEvent.Error = fmt.Errorf("%s: %s", event.Error.Code, event.Error.Message)
+		}
+		return handler(clientEvent)
+	}
+	return c.transport.Stream(ctx, transportHandler)
 }
 
 // GetStatus returns the current client and connection status

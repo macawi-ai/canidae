@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package howl.v1;
 
-option go_package = "github.com/canidae/canidae/pkg/api/howl/v1;howlv1";
+option go_package = "github.com/macawi-ai/canidae/api/howl/v1;howlv1";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/any.proto";

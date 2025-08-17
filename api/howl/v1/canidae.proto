@@ -1,0 +1,184 @@
+syntax = "proto3";
+
+package howl.v1;
+
+option go_package = "github.com/macawi-ai/canidae/api/howl/v1;howlv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+import "api/howl/v1/howl.proto";
+
+// CanidaeService extends PackService with SDK-specific operations
+service CanidaeService {
+  // Execute runs a single agent
+  rpc Execute(Request) returns (Response);
+  
+  // Chain runs multiple agents in sequence
+  rpc Chain(Request) returns (Response);
+  
+  // SummonPack creates a pack formation for parallel processing
+  rpc SummonPack(Request) returns (Response);
+  
+  // Stream enables bidirectional streaming
+  rpc Stream(stream StreamMessage) returns (stream StreamMessage);
+}
+
+// Request is a generic request wrapper
+message Request {
+  string id = 1;
+  string type = 2;
+  string pack_id = 3;
+  google.protobuf.Any payload = 4;
+  map<string, string> headers = 5;
+  map<string, string> metadata = 6;
+  google.protobuf.Timestamp timestamp = 7;
+}
+
+// Response is a generic response wrapper
+message Response {
+  string id = 1;
+  bool success = 2;
+  google.protobuf.Any data = 3;
+  Error error = 4;
+  map<string, string> headers = 5;
+  map<string, string> metadata = 6;
+  google.protobuf.Timestamp timestamp = 7;
+}
+
+// Error represents an error response
+message Error {
+  string code = 1;
+  string message = 2;
+  string details = 3;
+}
+
+// StreamMessage for bidirectional streaming
+message StreamMessage {
+  string id = 1;
+  StreamEventType type = 2;
+  google.protobuf.Any data = 3;
+  Error error = 4;
+  map<string, string> metadata = 5;
+  google.protobuf.Timestamp timestamp = 6;
+}
+
+enum StreamEventType {
+  STREAM_EVENT_TYPE_UNSPECIFIED = 0;
+  STREAM_EVENT_TYPE_DATA = 1;
+  STREAM_EVENT_TYPE_ERROR = 2;
+  STREAM_EVENT_TYPE_COMPLETE = 3;
+  STREAM_EVENT_TYPE_HEARTBEAT = 4;
+  STREAM_EVENT_TYPE_PROGRESS = 5;
+}
+
+// ExecuteRequest for single agent execution
+message ExecuteRequest {
+  string agent_type = 1;
+  string prompt = 2;
+  string model = 3;
+  float temperature = 4;
+  int32 max_tokens = 5;
+  SecurityProfile security_profile = 6;
+  map<string, string> metadata = 7;
+}
+
+// ExecuteResponse from single agent
+message ExecuteResponse {
+  string request_id = 1;
+  string response = 2;
+  int32 tokens_used = 3;
+  int64 duration_ms = 4;
+  string model = 5;
+  map<string, string> metadata = 6;
+}
+
+// ChainRequest for sequential agent execution
+message ChainRequest {
+  repeated ChainStep steps = 1;
+  SecurityProfile security_profile = 2;
+  bool continue_on_error = 3;
+  map<string, string> metadata = 4;
+}
+
+// ChainStep in a chain
+message ChainStep {
+  string agent_type = 1;
+  string prompt = 2;
+  string model = 3;
+  float temperature = 4;
+  int32 max_tokens = 5;
+  repeated string depends_on = 6;
+  map<string, string> metadata = 7;
+}
+
+// ChainResponse from chain execution
+message ChainResponse {
+  string request_id = 1;
+  repeated StepResponse steps = 2;
+  int32 total_tokens = 3;
+  int64 duration_ms = 4;
+  map<string, string> metadata = 5;
+}
+
+// StepResponse for individual chain step
+message StepResponse {
+  string step_id = 1;
+  string agent_type = 2;
+  string response = 3;
+  int32 tokens_used = 4;
+  int64 duration_ms = 5;
+  string error = 6;
+  map<string, string> metadata = 7;
+}
+
+// PackFormationRequest for pack operations
+message PackFormationRequest {
+  PackFormation formation = 1;
+  string objective = 2;
+  SecurityProfile security_profile = 3;
+  int32 max_concurrency = 4;
+  int64 timeout_ms = 5;
+  map<string, string> metadata = 6;
+}
+
+// PackFormation structure
+message PackFormation {
+  PackMemberSpec alpha = 1;
+  repeated PackMemberSpec hunters = 2;
+  repeated PackMemberSpec scouts = 3;
+  repeated PackMemberSpec sentries = 4;
+  repeated PackMemberSpec elders = 5;
+}
+
+// PackMemberSpec for pack member configuration
+message PackMemberSpec {
+  string role = 1;
+  string agent_type = 2;
+  string objective = 3;
+  string model = 4;
+  float temperature = 5;
+  int32 max_tokens = 6;
+  map<string, string> metadata = 7;
+}
+
+// PackFormationResponse from pack execution
+message PackFormationResponse {
+  string request_id = 1;
+  string pack_id = 2;
+  repeated PackResult results = 3;
+  int32 total_tokens = 4;
+  int64 duration_ms = 5;
+  map<string, string> metadata = 6;
+}
+
+// PackResult from individual pack member
+message PackResult {
+  string member_id = 1;
+  string role = 2;
+  string agent_type = 3;
+  string response = 4;
+  int32 tokens_used = 5;
+  int64 duration_ms = 6;
+  string error = 7;
+  map<string, string> metadata = 8;
+}
