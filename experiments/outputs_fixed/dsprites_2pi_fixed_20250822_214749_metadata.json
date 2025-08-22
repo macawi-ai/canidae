@@ -1,0 +1,91 @@
+{
+  "experiment_id": "dsprites_2pi_fixed_20250822_214749",
+  "timestamp": "2025-08-22T21:53:52.494759",
+  "approach": "variance_regulation",
+  "dataset": "dsprites",
+  "model_type": "TwoPiVAE",
+  "latent_dim": 10,
+  "epochs": 5,
+  "batch_size": 256,
+  "learning_rate": 0.001,
+  "variance_threshold": 0.5,
+  "lambda_variance": 2.0,
+  "lambda_rate": 20.0,
+  "two_pi_threshold": 0.06283185307,
+  "training_time_seconds": 352.657856464386,
+  "final_metrics": {
+    "epoch": 5,
+    "total_loss": 45.461682774402476,
+    "recon_loss": 25.24106268676711,
+    "kl_loss": 20.220620111918745,
+    "avg_variance": 0.3758774669840932,
+    "max_variance": 0.404246062040329,
+    "avg_variance_rate": 0.0017065098049280085,
+    "max_variance_rate": 0.009241759777069092,
+    "two_pi_violations": 0,
+    "two_pi_compliance_rate": 100.0
+  },
+  "all_metrics": [
+    {
+      "epoch": 1,
+      "total_loss": 113.68871614668105,
+      "recon_loss": 95.62793507546554,
+      "kl_loss": 18.0453002164205,
+      "avg_variance": 0.4266883612705257,
+      "max_variance": 244.4150848388672,
+      "avg_variance_rate": 0.19178617663428554,
+      "max_variance_rate": 240.045795917511,
+      "two_pi_violations": 12,
+      "two_pi_compliance_rate": 99.53703703703704
+    },
+    {
+      "epoch": 2,
+      "total_loss": 63.51597600660207,
+      "recon_loss": 44.58468596361302,
+      "kl_loss": 18.931290017969815,
+      "avg_variance": 0.34994262028025624,
+      "max_variance": 0.3843574523925781,
+      "avg_variance_rate": 0.0020306402886355363,
+      "max_variance_rate": 0.010899364948272705,
+      "two_pi_violations": 0,
+      "two_pi_compliance_rate": 100.0
+    },
+    {
+      "epoch": 3,
+      "total_loss": 52.33402082066477,
+      "recon_loss": 32.522631216932226,
+      "kl_loss": 19.811389605204266,
+      "avg_variance": 0.3555427594455304,
+      "max_variance": 0.3786800801753998,
+      "avg_variance_rate": 0.0017084256734377073,
+      "max_variance_rate": 0.007392257452011108,
+      "two_pi_violations": 0,
+      "two_pi_compliance_rate": 100.0
+    },
+    {
+      "epoch": 4,
+      "total_loss": 48.32739766880318,
+      "recon_loss": 28.24149564386886,
+      "kl_loss": 20.085902072765208,
+      "avg_variance": 0.3653404267021903,
+      "max_variance": 0.3898651599884033,
+      "avg_variance_rate": 0.0018058443487978277,
+      "max_variance_rate": 0.007963001728057861,
+      "two_pi_violations": 0,
+      "two_pi_compliance_rate": 100.0
+    },
+    {
+      "epoch": 5,
+      "total_loss": 45.461682774402476,
+      "recon_loss": 25.24106268676711,
+      "kl_loss": 20.220620111918745,
+      "avg_variance": 0.3758774669840932,
+      "max_variance": 0.404246062040329,
+      "avg_variance_rate": 0.0017065098049280085,
+      "max_variance_rate": 0.009241759777069092,
+      "two_pi_violations": 0,
+      "two_pi_compliance_rate": 100.0
+    }
+  ],
+  "success": true
+}

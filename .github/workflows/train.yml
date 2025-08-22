@@ -1,0 +1,182 @@
+name: CANIDAE Model Training Pipeline
+
+on:
+  workflow_dispatch:  # Manual trigger for now
+    inputs:
+      gpu_config:
+        description: 'GPU configuration (e.g., 8x3090, 1x3090)'
+        required: true
+        default: '1x3090'
+      dataset:
+        description: 'Dataset to train on'
+        required: true
+        default: 'arc-agi'
+        type: choice
+        options:
+          - arc-agi
+          - clevr
+          - dsprites
+          - shapes3d
+      experiment_name:
+        description: 'Experiment name/description'
+        required: true
+        default: '2pi-regulated-training'
+  push:
+    branches: [ main ]
+    paths:
+      - 'train_*.py'
+      - 'vsm_arc_*.py'
+      - 'learning_pipeline.py'
+
+env:
+  CANIDAE_HOME: /home/cy/git/canidae
+  NEO4J_URI: bolt://192.168.1.253:7688
+  REDIS_HOST: 192.168.1.253
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          lfs: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install neo4j redis duckdb
+
+      - name: Generate experiment ID
+        id: experiment
+        run: |
+          EXPERIMENT_ID="exp_$(date +%Y%m%d_%H%M%S)_${GITHUB_SHA:0:8}"
+          echo "experiment_id=$EXPERIMENT_ID" >> $GITHUB_OUTPUT
+          echo "timestamp=$(date -Iseconds)" >> $GITHUB_OUTPUT
+          
+      - name: Create experiment directory
+        run: |
+          mkdir -p models/${{ steps.experiment.outputs.experiment_id }}
+          mkdir -p experiments/${{ steps.experiment.outputs.experiment_id }}
+
+      - name: Run training script
+        id: training
+        run: |
+          python learning_pipeline.py \
+            --experiment-id ${{ steps.experiment.outputs.experiment_id }} \
+            --gpu-config "${{ github.event.inputs.gpu_config || '1x3090' }}" \
+            --dataset "${{ github.event.inputs.dataset || 'arc-agi' }}" \
+            --output-dir models/${{ steps.experiment.outputs.experiment_id }} \
+            --experiment-name "${{ github.event.inputs.experiment_name || 'automated-training' }}"
+        continue-on-error: true
+
+      - name: Capture experiment metadata
+        if: always()
+        run: |
+          cat > experiments/${{ steps.experiment.outputs.experiment_id }}/metadata.json <<EOF
+          {
+            "experiment_id": "${{ steps.experiment.outputs.experiment_id }}",
+            "timestamp": "${{ steps.experiment.outputs.timestamp }}",
+            "git_sha": "${{ github.sha }}",
+            "git_branch": "${{ github.ref_name }}",
+            "gpu_config": "${{ github.event.inputs.gpu_config || '1x3090' }}",
+            "dataset": "${{ github.event.inputs.dataset || 'arc-agi' }}",
+            "experiment_name": "${{ github.event.inputs.experiment_name || 'automated-training' }}",
+            "training_success": ${{ steps.training.outcome == 'success' }},
+            "github_run_id": "${{ github.run_id }}",
+            "github_run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          EOF
+
+      - name: Compress model artifacts
+        if: always()
+        run: |
+          tar -czf canidae_model_${{ steps.experiment.outputs.experiment_id }}.tar.gz \
+            models/${{ steps.experiment.outputs.experiment_id }}/ \
+            experiments/${{ steps.experiment.outputs.experiment_id }}/
+
+      - name: Setup Git LFS
+        run: |
+          git lfs track "*.tar.gz"
+          git lfs track "*.pth"
+          git lfs track "*.pt"
+          git add .gitattributes
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Commit model artifacts
+        if: always()
+        run: |
+          git add models/${{ steps.experiment.outputs.experiment_id }}
+          git add experiments/${{ steps.experiment.outputs.experiment_id }}
+          git commit -m "🤖 Training artifacts for ${{ steps.experiment.outputs.experiment_id }}" || true
+          git push || true
+
+      - name: Create GitHub Release
+        if: steps.training.outcome == 'success'
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: model-${{ steps.experiment.outputs.experiment_id }}
+          release_name: "CANIDAE Model - ${{ steps.experiment.outputs.experiment_id }}"
+          body: |
+            ## Training Run Details
+            - **Experiment ID**: ${{ steps.experiment.outputs.experiment_id }}
+            - **Dataset**: ${{ github.event.inputs.dataset || 'arc-agi' }}
+            - **GPU Config**: ${{ github.event.inputs.gpu_config || '1x3090' }}
+            - **Experiment Name**: ${{ github.event.inputs.experiment_name || 'automated-training' }}
+            - **Timestamp**: ${{ steps.experiment.outputs.timestamp }}
+            - **Git SHA**: ${{ github.sha }}
+            
+            ### 2π Regulation Status
+            Model trained with 2π% variety regulation (Δc/Δt < 0.06283185307)
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        if: steps.training.outcome == 'success'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./canidae_model_${{ steps.experiment.outputs.experiment_id }}.tar.gz
+          asset_name: canidae_model_${{ steps.experiment.outputs.experiment_id }}.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Update Neo4j Knowledge Graph
+        if: always()
+        run: |
+          python scripts/update_neo4j.py \
+            --experiment-id ${{ steps.experiment.outputs.experiment_id }} \
+            --metadata-file experiments/${{ steps.experiment.outputs.experiment_id }}/metadata.json \
+            --success ${{ steps.training.outcome == 'success' }} \
+            --release-url "${{ steps.create_release.outputs.html_url || 'none' }}"
+        continue-on-error: true
+
+      - name: Archive training logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: training-logs-${{ steps.experiment.outputs.experiment_id }}
+          path: |
+            experiments/${{ steps.experiment.outputs.experiment_id }}/
+            models/${{ steps.experiment.outputs.experiment_id }}/*.log
+            models/${{ steps.experiment.outputs.experiment_id }}/*.csv
+          retention-days: 30
+
+      - name: Notify completion
+        if: always()
+        run: |
+          echo "🦊 Training pipeline completed!"
+          echo "Experiment ID: ${{ steps.experiment.outputs.experiment_id }}"
+          echo "Status: ${{ steps.training.outcome }}"
+          echo "Artifacts stored in: models/${{ steps.experiment.outputs.experiment_id }}/"

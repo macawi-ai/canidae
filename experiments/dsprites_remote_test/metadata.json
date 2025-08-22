@@ -1,0 +1,12 @@
+{
+  "experiment_id": "dsprites_remote_3090_test",
+  "timestamp": "2025-08-22T16:40:29-05:00",
+  "dataset": "dsprites",
+  "gpu_config": "1x3090",
+  "training_success": true,
+  "epochs": 3,
+  "batch_size": 256,
+  "final_complexity": 19.7823,
+  "two_pi_regulated": true,
+  "artifacts_retrieved": true
+}
