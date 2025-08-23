@@ -147,8 +147,128 @@ class DatasetLoader:
     
     def _load_cifar10(self) -> Tuple[torch.utils.data.DataLoader, ...]:
         """Load CIFAR-10 dataset"""
-        # Implementation for CIFAR-10
-        raise NotImplementedError("CIFAR-10 loader to be implemented")
+        
+        import pickle
+        import os
+        
+        data_path = Path(self.dataset_config['train_path'])
+        if not data_path.exists():
+            # Try to download if not exists
+            logger.info("CIFAR-10 not found locally, downloading...")
+            self._download_cifar10()
+            
+        # Load CIFAR-10 batches
+        def load_batch(file_path):
+            with open(file_path, 'rb') as f:
+                batch = pickle.load(f, encoding='bytes')
+            data = batch[b'data']
+            labels = batch[b'labels'] if b'labels' in batch else batch[b'fine_labels']
+            # Reshape from (N, 3072) to (N, 3, 32, 32) - already in CHW format!
+            data = data.reshape(-1, 3, 32, 32)
+            return data, labels
+        
+        # Load training batches
+        x_train = []
+        y_train = []
+        for i in range(1, 6):  # data_batch_1 to data_batch_5
+            batch_file = data_path / f'data_batch_{i}'
+            if batch_file.exists():
+                data, labels = load_batch(batch_file)
+                x_train.append(data)
+                y_train.append(labels)
+        
+        if x_train:
+            x_train = np.concatenate(x_train, axis=0).astype(np.float32) / 255.0
+            y_train = np.concatenate(y_train, axis=0)
+        else:
+            raise FileNotFoundError(f"CIFAR-10 training data not found at {data_path}")
+        
+        # Load test batch
+        test_file = data_path / 'test_batch'
+        if test_file.exists():
+            x_test, y_test = load_batch(test_file)
+            x_test = x_test.astype(np.float32) / 255.0
+        else:
+            logger.warning("CIFAR-10 test batch not found")
+            x_test, y_test = None, None
+        
+        logger.info(f"Loaded CIFAR-10: Train {x_train.shape}, Test {x_test.shape if x_test is not None else 'N/A'}")
+        
+        # Create validation split
+        val_split = self.dataset_config.get('val_split', 0.1)
+        if val_split > 0:
+            n_val = int(len(x_train) * val_split)
+            indices = np.random.permutation(len(x_train))
+            
+            x_val = x_train[indices[:n_val]]
+            y_val = y_train[indices[:n_val]]
+            x_train = x_train[indices[n_val:]]
+            y_train = y_train[indices[n_val:]]
+        else:
+            x_val, y_val = None, None
+        
+        # Create datasets
+        train_dataset = self._create_tensor_dataset(x_train, y_train)
+        val_dataset = self._create_tensor_dataset(x_val, y_val) if x_val is not None else None
+        test_dataset = self._create_tensor_dataset(x_test, y_test) if x_test is not None else None
+        
+        # Create data loaders
+        batch_size = self.config['hyperparameters']['batch_size']
+        num_workers = self.config.get('resources', {}).get('num_workers', 2)
+        
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            pin_memory=torch.cuda.is_available()
+        )
+        
+        val_loader = None
+        if val_dataset is not None:
+            val_loader = torch.utils.data.DataLoader(
+                val_dataset,
+                batch_size=batch_size,
+                shuffle=False,
+                num_workers=num_workers,
+                pin_memory=torch.cuda.is_available()
+            )
+        
+        test_loader = None
+        if test_dataset is not None:
+            test_loader = torch.utils.data.DataLoader(
+                test_dataset,
+                batch_size=batch_size,
+                shuffle=False,
+                num_workers=num_workers,
+                pin_memory=torch.cuda.is_available()
+            )
+        
+        logger.info(f"Created CIFAR-10 data loaders - Train: {len(train_loader)} batches, "
+                   f"Val: {len(val_loader) if val_loader else 0} batches, "
+                   f"Test: {len(test_loader) if test_loader else 0} batches")
+        
+        return train_loader, val_loader, test_loader
+    
+    def _download_cifar10(self):
+        """Download CIFAR-10 dataset"""
+        import urllib.request
+        import tarfile
+        
+        url = "https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz"
+        download_path = Path("/home/cy/git/canidae/datasets/cifar10/")
+        download_path.mkdir(parents=True, exist_ok=True)
+        
+        tar_path = download_path / "cifar-10-python.tar.gz"
+        
+        logger.info(f"Downloading CIFAR-10 from {url}...")
+        urllib.request.urlretrieve(url, tar_path)
+        
+        logger.info("Extracting CIFAR-10...")
+        with tarfile.open(tar_path, 'r:gz') as tar:
+            tar.extractall(download_path)
+        
+        logger.info("CIFAR-10 download complete!")
     
     def _create_tensor_dataset(self, x_data: np.ndarray, y_data: Optional[np.ndarray] = None) -> torch.utils.data.Dataset:
         """Create PyTorch TensorDataset from numpy arrays"""

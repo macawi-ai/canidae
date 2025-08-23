@@ -466,12 +466,79 @@ class StandardTrainer:
         val_loss /= len(val_loader.dataset)
         return {'val_loss': val_loss}
 
+class CIFAR10CNN(nn.Module):
+    """CNN-VAE architecture for CIFAR-10 (32x32 RGB images)"""
+    
+    def __init__(self, latent_dim: int = 128, use_2pi: bool = True):
+        super().__init__()
+        self.latent_dim = latent_dim
+        self.use_2pi = use_2pi
+        
+        # Encoder (CNN)
+        self.encoder_cnn = nn.Sequential(
+            nn.Conv2d(3, 32, 3, stride=1, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 3, stride=2, padding=1),  # 16x16
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.Conv2d(64, 128, 3, stride=2, padding=1),  # 8x8
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.Conv2d(128, 256, 3, stride=2, padding=1),  # 4x4
+            nn.BatchNorm2d(256),
+            nn.ReLU()
+        )
+        
+        # Latent representation
+        self.fc_mu = nn.Linear(256 * 4 * 4, latent_dim)
+        self.fc_logvar = nn.Linear(256 * 4 * 4, latent_dim)
+        
+        # Decoder
+        self.fc_decode = nn.Linear(latent_dim, 256 * 4 * 4)
+        
+        self.decoder_cnn = nn.Sequential(
+            nn.ConvTranspose2d(256, 128, 3, stride=2, padding=1, output_padding=1),  # 8x8
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.ConvTranspose2d(128, 64, 3, stride=2, padding=1, output_padding=1),  # 16x16
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 32, 3, stride=2, padding=1, output_padding=1),  # 32x32
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.Conv2d(32, 3, 3, stride=1, padding=1),
+            nn.Sigmoid()
+        )
+    
+    def encode(self, x):
+        h = self.encoder_cnn(x)
+        h = h.view(h.size(0), -1)
+        return self.fc_mu(h), self.fc_logvar(h)
+    
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + eps * std
+    
+    def decode(self, z):
+        h = self.fc_decode(z)
+        h = h.view(h.size(0), 256, 4, 4)
+        return self.decoder_cnn(h)
+    
+    def forward(self, x):
+        mu, logvar = self.encode(x)
+        z = self.reparameterize(mu, logvar)
+        recon = self.decode(z)
+        return recon, mu, logvar
+
 class ModelTrainer:
     """Main interface for training multiple models (2π + baselines)"""
     
     MODEL_REGISTRY = {
         'FashionVAE': FashionVAE,
-        'StandardVAE': StandardVAE
+        'StandardVAE': StandardVAE,
+        'CIFAR10CNN': CIFAR10CNN
     }
     
     def __init__(self, config: Dict[str, Any]):

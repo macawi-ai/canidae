@@ -1,0 +1,149 @@
+# CIFAR-10 Controlled Comparison: 2π vs Baselines
+# Testing on natural images with real-world complexity
+
+experiment_name: "cifar10_controlled_comparison"
+experiment_id: "EXP_003"
+description: "Controlled comparison of 2π regulation vs standard training on CIFAR-10 natural images"
+
+# Dataset Configuration
+dataset:
+  name: "CIFAR-10"
+  type: "image_classification"
+  train_path: "/home/cy/git/canidae/datasets/cifar10/cifar-10-batches-py"
+  val_path: null  # Will split from train
+  test_path: null  # Will use test batch
+  num_classes: 10
+  input_shape: [3, 32, 32]
+  val_split: 0.1
+  classes: ["airplane", "automobile", "bird", "cat", "deer", 
+           "dog", "frog", "horse", "ship", "truck"]
+
+# Primary Model (2π regulated)
+model:
+  name: "2pi_cifar_cnn"
+  architecture: "CIFAR10CNN"
+  use_2pi_regulation: true
+  pretrained: false
+  latent_dim: 128
+
+# 2π Regulation Parameters
+two_pi_regulation:
+  stability_coefficient: 0.06283185307  # THE MAGIC CONSTANT!
+  variance_threshold_init: 1.5
+  variance_threshold_final: 1.0
+  lambda_variance: 1.0
+  lambda_rate: 10.0
+  track_compliance: true
+
+# Training Hyperparameters
+hyperparameters:
+  learning_rate: 0.001
+  batch_size: 128
+  epochs: 10  # Short test run first
+  optimizer: "adam"
+  beta: 0.1
+  scheduler: null
+  weight_decay: 0.0
+
+# Baseline Models for FAIR Controlled Comparison
+baselines:
+  - name: "standard_cifar_cnn"
+    architecture: "CIFAR10CNN"
+    use_2pi_regulation: false
+    # IDENTICAL architecture and hyperparameters except no 2π
+  - name: "beta_vae_cifar"
+    architecture: "CIFAR10CNN"
+    use_2pi_regulation: false
+    beta: 1.0  # Stronger regularization
+
+# Evaluation Metrics
+metrics:
+  - "accuracy"
+  - "precision"
+  - "recall"
+  - "f1_score"
+  - "reconstruction_loss"
+  - "kl_divergence"
+  - "2pi_compliance"
+  - "training_stability"
+
+# Statistical Analysis Configuration
+statistical_analysis:
+  enabled: true
+  significance_level: 0.05
+  tests:
+    - "t_test"
+    - "mann_whitney_u"
+  multiple_comparisons_correction: "bonferroni"
+  confidence_intervals: true
+  effect_size: true
+  bootstrap_samples: 1000
+
+# Error Analysis Configuration
+error_analysis:
+  enabled: true
+  confusion_matrix: true
+  per_class_analysis: true
+  failure_cases_to_save: 50
+  class_names: ["airplane", "automobile", "bird", "cat", "deer",
+                "dog", "frog", "horse", "ship", "truck"]
+
+# Ablation Study Configuration
+ablation_study:
+  enabled: false  # Skip for initial test
+  components_to_ablate:
+    - "variance_penalty"
+    - "rate_penalty"
+    - "adaptive_threshold"
+  ablation_type: "remove"
+
+# Robustness Testing
+robustness_testing:
+  enabled: true
+  tests:
+    - name: "gaussian_noise"
+      noise_levels: [0.01, 0.05, 0.1]
+    - name: "rotation"
+      rotation_angles: [5, 10, 15]
+    - name: "brightness"
+      brightness_factors: [0.8, 1.2]
+
+# Visualization Configuration
+visualization:
+  enabled: true
+  plots:
+    - "learning_curves"
+    - "compliance_over_time"
+    - "baseline_comparison"
+    - "robustness_curves"
+    - "reconstruction_samples"
+  save_format: ["png", "pdf"]
+
+# Legal Documentation
+legal:
+  enabled: true
+  version: "1.2"
+  witnesses: ["Synth", "Cy", "Gemini"]
+  patent_relevance: "critical"
+  comparative_evidence: true
+
+# Output Configuration
+output:
+  base_path: "/home/cy/git/canidae/experiments/results"
+  experiment_subdir: "cifar10_controlled"
+  create_timestamp_dir: true
+  save_models: true
+  save_predictions: true
+  save_compliance_logs: true
+
+# Computational Resources
+resources:
+  device: "auto"
+  num_workers: 4
+  memory_limit_gb: 8
+  timeout_hours: 2
+
+# Reproducibility
+reproducibility:
+  random_seed: 42
+  deterministic: true
