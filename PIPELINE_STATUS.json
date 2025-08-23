@@ -1,0 +1,22 @@
+{
+  "last_updated": "2025-08-23T13:00:50.446458",
+  "experiments_completed": 1,
+  "total_cwus": 1930.4999771118164,
+  "datasets_processed": [
+    "CIFAR10",
+    "CIFAR100",
+    "Shapes3D"
+  ],
+  "key_insights": [
+    "2\u03c0 regulation works across diverse datasets",
+    "Disentanglement preserved but needs \u03b2 tuning",
+    "99.4% compliance achieved on 50K Shapes3D subset",
+    "Factor independence maintained under regulation"
+  ],
+  "next_experiments": [
+    "Tune \u03b2 parameter for better disentanglement",
+    "Test full 480K Shapes3D dataset",
+    "Compare with/without 2\u03c0 on same architecture",
+    "Process SmallNORB and Tangram datasets"
+  ]
+}
