@@ -1,0 +1,21 @@
+{
+  "dataset": "MNIST",
+  "best_compliance": 1.0,
+  "final_train_loss": 77.51323433734001,
+  "final_test_loss": 76.84236575927734,
+  "total_violations": 30,
+  "training_time_min": 1.597024150689443,
+  "config": {
+    "stability_coefficient": 0.06283185307,
+    "variance_threshold_init": 1.5,
+    "variance_threshold_final": 1.0,
+    "lambda_variance": 1.0,
+    "lambda_rate": 10.0,
+    "learning_rate": 0.001,
+    "batch_size": 256,
+    "latent_dim": 10,
+    "beta": 0.1,
+    "epochs": 50
+  },
+  "timestamp": "20250822_185247"
+}

@@ -1,0 +1,152 @@
+# Fashion-MNIST Controlled Comparison: 2π vs Baselines
+# Proving statistical significance of 2π regulation
+
+experiment_name: "fashion_mnist_controlled_comparison"
+experiment_id: "EXP_002" 
+description: "Controlled comparison of 2π regulation vs standard training on Fashion-MNIST"
+
+# Dataset Configuration
+dataset:
+  name: "Fashion-MNIST"
+  type: "image_classification"
+  train_path: "/home/cy/git/canidae/datasets/fashion_mnist/fashion_mnist.npz"
+  val_path: null  # Will split from train
+  test_path: null   # Will use test split from npz
+  num_classes: 10
+  input_shape: [1, 28, 28]
+  val_split: 0.1
+
+# Primary Model (2π regulated)
+model:
+  name: "2pi_fashion_vae"
+  architecture: "FashionVAE"
+  use_2pi_regulation: true
+  pretrained: false
+  latent_dim: 10
+
+# 2π Regulation Parameters  
+two_pi_regulation:
+  stability_coefficient: 0.06283185307  # Our discovered constant!
+  variance_threshold_init: 1.5
+  variance_threshold_final: 1.0
+  lambda_variance: 1.0
+  lambda_rate: 10.0
+  track_compliance: true
+
+# Training Hyperparameters
+hyperparameters:
+  learning_rate: 0.001
+  batch_size: 256
+  epochs: 5  # Short test run
+  optimizer: "adam"
+  beta: 0.1
+  scheduler: null
+  weight_decay: 0.0
+
+# Baseline Models for FAIR Controlled Comparison
+baselines:
+  - name: "standard_fashion_vae"
+    architecture: "FashionVAE"
+    use_2pi_regulation: false
+    # IDENTICAL architecture and hyperparameters except no 2π regulation
+  - name: "beta_vae_strong"
+    architecture: "FashionVAE" 
+    use_2pi_regulation: false
+    beta: 1.0  # Stronger β-VAE regularization
+  - name: "beta_vae_weak"
+    architecture: "FashionVAE"
+    use_2pi_regulation: false
+    beta: 0.01  # Weaker β-VAE regularization
+
+# Evaluation Metrics
+metrics:
+  - "accuracy"
+  - "precision" 
+  - "recall"
+  - "f1_score"
+  - "reconstruction_loss"
+  - "kl_divergence" 
+  - "2pi_compliance"
+  - "training_stability"
+
+# Statistical Analysis Configuration
+statistical_analysis:
+  enabled: true
+  significance_level: 0.05
+  tests:
+    - "t_test"
+    - "mann_whitney_u" 
+  multiple_comparisons_correction: "bonferroni"
+  confidence_intervals: true
+  effect_size: true
+  bootstrap_samples: 1000
+
+# Error Analysis Configuration
+error_analysis:
+  enabled: true
+  confusion_matrix: true
+  per_class_analysis: true
+  failure_cases_to_save: 50
+  class_names: ["T-shirt", "Trouser", "Pullover", "Dress", "Coat", 
+               "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"]
+
+# Ablation Study Configuration
+ablation_study:
+  enabled: true
+  components_to_ablate:
+    - "variance_penalty"
+    - "rate_penalty"
+    - "adaptive_threshold" 
+  ablation_type: "remove"
+
+# Robustness Testing
+robustness_testing:
+  enabled: true
+  tests:
+    - name: "gaussian_noise"
+      noise_levels: [0.01, 0.05, 0.1, 0.2]
+    - name: "salt_pepper_noise"
+      noise_levels: [0.01, 0.05, 0.1]
+    - name: "rotation"
+      rotation_angles: [5, 10, 15, 30]
+
+# Visualization Configuration
+visualization:
+  enabled: true
+  plots:
+    - "learning_curves"
+    - "compliance_over_time"
+    - "baseline_comparison"
+    - "robustness_curves"
+    - "reconstruction_samples"
+    - "latent_space_viz"
+  save_format: ["png", "pdf"]
+
+# Legal Documentation
+legal:
+  enabled: true
+  version: "1.1"
+  witnesses: ["Synth", "Cy", "Gemini"]
+  patent_relevance: "high"
+  comparative_evidence: true
+
+# Output Configuration  
+output:
+  base_path: "/home/cy/git/canidae/experiments/results"
+  experiment_subdir: "fashion_mnist_controlled"
+  create_timestamp_dir: true
+  save_models: true
+  save_predictions: true
+  save_compliance_logs: true
+
+# Computational Resources
+resources:
+  device: "auto"
+  num_workers: 2
+  memory_limit_gb: 8
+  timeout_hours: 4
+
+# Reproducibility
+reproducibility:
+  random_seed: 42
+  deterministic: true
